@@ -1,11 +1,13 @@
+import {pathNormalize} from './path-normalize';
+
 export const getExtensionOfFilename = (
-	filename: string | null
+	filename: string | null,
 ): string | null => {
 	if (filename === null) {
 		return null;
 	}
 
-	const filenameArr = filename.split('.');
+	const filenameArr = pathNormalize(filename).split('.');
 
 	const hasExtension = filenameArr.length >= 2;
 	const filenameArrLength = filenameArr.length;

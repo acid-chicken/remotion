@@ -1,55 +1,60 @@
-import {estimatePriceFromBucket} from '../../functions/helpers/calculate-price-from-bucket';
+import {estimatePriceFromBucket} from '@remotion/serverless';
+import {expect, test} from 'bun:test';
+import {awsImplementation} from '../../functions/aws-implementation';
 
 test('Should not throw while calculating prices when time shifts occur', () => {
 	const aDate = Date.now();
-	process.env.__RESERVED_IS_INSIDE_REMOTION_LAMBDA = 'true';
-	process.env.REMOTION_AWS_REGION = 'us-east-1';
+	process.env.AWS_REGION = 'us-east-1';
 
 	const price = estimatePriceFromBucket({
-		contents: [
-			{
-				Key: 'renders/123/out.mp4',
-				// Render date is before start date. It can happen if Lambda function is out of date
-				LastModified: new Date(aDate - 10000),
-			},
-		],
 		memorySizeInMb: 1024,
 		renderMetadata: {
+			audioBitrate: null,
 			codec: 'h264',
 			compositionId: 'react-svg',
 			estimatedRenderLambdaInvokations: 10,
 			estimatedTotalLambdaInvokations: 10,
 			framesPerLambda: 10,
 			imageFormat: 'jpeg',
-			inputProps: {},
+			inputProps: {
+				type: 'payload',
+				payload: '{}',
+			},
 			lambdaVersion: '2021-11-29',
 			memorySizeInMb: 1024,
 			region: 'eu-central-1',
 			renderId: '123',
+			deleteAfter: null,
 			siteId: 'my-site',
 			startedDate: aDate + 1000,
 			totalChunks: 20,
 			type: 'video',
-			usesOptimizationProfile: true,
-			videoConfig: {
-				durationInFrames: 100,
-				fps: 30,
-				height: 1080,
-				id: 'react-svg',
-				width: 1080,
-				defaultProps: {},
-			},
 			outName: 'out.mp4',
 			privacy: 'public',
+			everyNthFrame: 1,
+			frameRange: [0, 99],
+			audioCodec: null,
+			downloadBehavior: {type: 'play-in-browser'},
+			numberOfGifLoops: null,
+			muted: false,
+			metadata: {Author: 'Lunar'},
+			functionName: 'remotion-render-la8ffw',
+			dimensions: {
+				height: 1080,
+				width: 1920,
+			},
 		},
-		outputFileMetadata: {
-			url: 'out.mp4',
-			lastModified: Date.now() - 2000,
-			size: 1000000,
-		},
-		architecture: 'x86_64',
 		diskSizeInMb: 512,
-		lambdasInvoked: 1,
+		functionsInvoked: 1,
+		timings: [
+			{
+				chunk: 1,
+				rendered: aDate - 2000,
+				start: aDate,
+			},
+		],
+		region: 'eu-central-1',
+		providerSpecifics: awsImplementation,
 	});
-	expect(price).toBeGreaterThanOrEqual(0);
+	expect(price?.accruedSoFar).toBeGreaterThanOrEqual(0);
 });

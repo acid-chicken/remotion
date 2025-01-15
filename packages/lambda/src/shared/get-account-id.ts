@@ -1,17 +1,22 @@
-import {GetUserCommand} from '@aws-sdk/client-iam';
-import type {AwsRegion} from '../pricing/aws-regions';
-import {getIamClient} from './aws-clients';
+import {GetCallerIdentityCommand} from '@aws-sdk/client-sts';
+import type {GetAccountId} from '@remotion/serverless';
+import type {AwsProvider} from '../functions/aws-implementation';
+import type {AwsRegion} from '../regions';
+import {getStsClient} from './aws-clients';
 import {validateAwsRegion} from './validate-aws-region';
 
-export const getAccountId = async (options: {region: AwsRegion}) => {
+export const getAccountIdImplementation: GetAccountId<
+	AwsProvider
+> = async (options: {region: AwsRegion}) => {
 	validateAwsRegion(options.region);
 
-	const user = await getIamClient(options.region).send(new GetUserCommand({}));
-	const accountId = user.User?.Arn?.match(/aws:iam::([0-9]+)/);
+	const callerIdentity = await getStsClient(options.region).send(
+		new GetCallerIdentityCommand({}),
+	);
 
-	if (!accountId) {
+	if (!callerIdentity.Account) {
 		throw new Error('Cannot get account ID');
 	}
 
-	return accountId[1];
+	return callerIdentity.Account;
 };

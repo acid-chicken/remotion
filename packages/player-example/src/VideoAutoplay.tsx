@@ -1,9 +1,15 @@
 import {preloadAudio, preloadVideo} from '@remotion/preload';
-import {Gif} from '@remotion/gif';
-import {AbsoluteFill, Audio, Sequence, Series, staticFile} from 'remotion';
+import {
+	AbsoluteFill,
+	Audio,
+	Sequence,
+	Series,
+	Video,
+	staticFile,
+} from 'remotion';
 
 preloadVideo(
-	'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4'
+	'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
 );
 
 preloadAudio(staticFile('sample.mp3'));
@@ -15,7 +21,6 @@ export const VideoautoplayDemo = () => {
 				backgroundColor: 'red',
 			}}
 		>
-
 			<Sequence from={20}>
 				<Audio src={staticFile('sample.mp3')} volume={0.2} />
 			</Sequence>
@@ -25,13 +30,10 @@ export const VideoautoplayDemo = () => {
 				</Series.Sequence>
 			</Series>
 			<AbsoluteFill>
-			<Gif
-					src="https://media.giphy.com/media/xT0GqH01ZyKwd3aT3G/giphy.gif"
-					fit="cover"
-					height={200}
-					width={200}
+				<Video
+					pauseWhenBuffering
+					src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 				/>
-
 			</AbsoluteFill>
 		</AbsoluteFill>
 	);

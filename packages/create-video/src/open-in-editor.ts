@@ -10,12 +10,13 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
-import type {ChildProcess} from 'child_process';
-import child_process, {exec} from 'child_process';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import util from 'util';
+import type {ChildProcess} from 'node:child_process';
+import child_process, {exec} from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import util from 'node:util';
+import {Log} from './log';
 
 const execProm = util.promisify(exec);
 
@@ -41,6 +42,7 @@ export function isTerminalEditor(editor: Editor) {
 	}
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const editorNames = [
 	'atom',
 	'/Applications/Atom Beta.app/Contents/MacOS/Atom Beta',
@@ -172,7 +174,7 @@ export const getDisplayNameForEditor = (editor: Editor): string => {
 	);
 };
 
-type Editor = typeof editorNames[number];
+type Editor = (typeof editorNames)[number];
 
 // Map from full process name to binary that starts the process
 // We can't just re-use full process name, because it will spawn a new instance
@@ -270,7 +272,7 @@ function getArgumentsForLineNumber(
 	editor: Editor,
 	fileName: string,
 	lineNumber: string,
-	colNumber: number
+	colNumber: number,
 ) {
 	const editorBasename = path.basename(editor).replace(/\.(exe|cmd|bat)$/i, '');
 	switch (editorBasename) {
@@ -363,7 +365,7 @@ export async function guessEditor(): Promise<ProcessAndCommand[]> {
 			// Just filter them out upfront. This also saves 10-20ms on the command.
 			const output = (
 				await execProm(
-					'wmic process where "executablepath is not null" get executablepath'
+					'wmic process where "executablepath is not null" get executablepath',
 				)
 			).stdout.toString();
 			const runningProcesses = output.split('\r\n');
@@ -401,7 +403,7 @@ export async function guessEditor(): Promise<ProcessAndCommand[]> {
 
 			return availableEditors;
 		}
-	} catch (error) {
+	} catch {
 		// Ignore...
 	}
 
@@ -485,18 +487,16 @@ export async function launchEditor({
 		process.platform === 'win32' &&
 		!WINDOWS_FILE_NAME_WHITELIST.test(fileName.trim())
 	) {
-		console.log();
-		console.log(
-			'Could not open ' + path.basename(fileName) + ' in the editor.'
-		);
-		console.log();
-		console.log(
+		Log.info();
+		Log.info('Could not open ' + path.basename(fileName) + ' in the editor.');
+		Log.info();
+		Log.info(
 			'When running on Windows, file names are checked against a whitelist ' +
 				'to protect against remote code execution attacks. File names may ' +
 				'consist only of alphanumeric characters (all languages), periods, ' +
-				'dashes, slashes, and underscores.'
+				'dashes, slashes, and underscores.',
 		);
-		console.log();
+		Log.info();
 		return false;
 	}
 
@@ -506,13 +506,13 @@ export async function launchEditor({
 	const args = shouldOpenVsCodeNewWindow
 		? ['--new-window', fileName]
 		: lineNumber
-		? getArgumentsForLineNumber(
-				editor.command,
-				fileName,
-				String(lineNumber),
-				colNumber
-		  )
-		: [fileName];
+			? getArgumentsForLineNumber(
+					editor.command,
+					fileName,
+					String(lineNumber),
+					colNumber,
+				)
+			: [fileName];
 
 	if (_childProcess && isTerminalEditor(editor.command)) {
 		// There's an existing editor process already and it's attached
@@ -545,7 +545,7 @@ export async function launchEditor({
 		_childProcess = child_process.spawn(
 			'cmd.exe',
 			['/C', binaryToUse].concat(args),
-			{stdio: 'inherit', detached: true}
+			{stdio: 'inherit', detached: true},
 		);
 	} else {
 		_childProcess = child_process.spawn(binaryToUse, args, {stdio: 'inherit'});
@@ -555,12 +555,12 @@ export async function launchEditor({
 		_childProcess = null;
 
 		if (errorCode) {
-			console.log(`Process exited with code ${errorCode}`);
+			Log.info(`Process exited with code ${errorCode}`);
 		}
 	});
 
 	_childProcess.on('error', (error) => {
-		console.log('Error opening file in editor', fileName, error.message);
+		Log.info('Error opening file in editor', fileName, error.message);
 	});
 	return true;
 }

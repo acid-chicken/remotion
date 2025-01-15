@@ -1,10 +1,6 @@
-/**
- * @description Throws if the signature of the finish webhook is missing or inauthentic
- * @link https://remotion.dev/docs/lambda/validate-webhook-signature
- * @param params.secret The secret used for signing the webhook
- * @param params.body The body that was received by the endpoint
- * @param params.signatureHeader The `X-Remotion-Signature` header
- * @returns {void}
+/*
+ * @description Validates that the signature received by a webhook endpoint is authentic. If validation fails, an error is thrown.
+ * @see [Documentation](https://remotion.dev/docs/lambda/validatewebhooksignature)
  */
 export const validateWebhookSignature = ({
 	secret,
@@ -12,18 +8,18 @@ export const validateWebhookSignature = ({
 	signatureHeader,
 }: {
 	secret: string;
-	body: string;
+	body: unknown;
 	signatureHeader: string;
 }) => {
 	if (!secret) {
 		throw new TypeError(
-			"No 'secret' was provided to validateWebhookSignature()."
+			"No 'secret' was provided to validateWebhookSignature().",
 		);
 	}
 
 	if (!body) {
 		throw new TypeError(
-			"No 'body' was provided to validateWebhookSignature()."
+			"No 'body' was provided to validateWebhookSignature().",
 		);
 	}
 

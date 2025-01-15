@@ -1,8 +1,10 @@
 import type {RefObject} from 'react';
+import {getRemotionEnvironment} from './get-remotion-environment';
 
 export const playAndHandleNotAllowedError = (
-	mediaRef: RefObject<HTMLVideoElement | HTMLAudioElement>,
-	mediaType: 'audio' | 'video'
+	mediaRef: RefObject<HTMLVideoElement | HTMLAudioElement | null>,
+	mediaType: 'audio' | 'video',
+	onAutoPlayError: null | (() => void),
 ) => {
 	const {current} = mediaRef;
 	if (!current) {
@@ -10,6 +12,7 @@ export const playAndHandleNotAllowedError = (
 	}
 
 	const prom = current.play();
+
 	if (prom.catch) {
 		prom.catch((err: Error) => {
 			if (!current) {
@@ -29,7 +32,7 @@ export const playAndHandleNotAllowedError = (
 			// Pause was called after play in Firefox
 			if (
 				err.message.includes(
-					'The fetching process for the media resource was aborted by the user agent'
+					'The fetching process for the media resource was aborted by the user agent',
 				)
 			) {
 				return;
@@ -49,9 +52,29 @@ export const playAndHandleNotAllowedError = (
 				return;
 			}
 
+			// Audio tag got unmounted
+			if (
+				err.message.includes("user didn't interact with the document") &&
+				current.muted
+			) {
+				return;
+			}
+
+			// eslint-disable-next-line no-console
 			console.log(`Could not play ${mediaType} due to following error: `, err);
 			if (!current.muted) {
-				console.log(`The video will be muted and we'll retry playing it.`, err);
+				if (onAutoPlayError) {
+					onAutoPlayError();
+					return;
+				}
+
+				// eslint-disable-next-line no-console
+				console.log(`The video will be muted and we'll retry playing it.`);
+				if (mediaType === 'video' && getRemotionEnvironment().isPlayer) {
+					// eslint-disable-next-line no-console
+					console.log('Use onAutoPlayError() to handle this error yourself.');
+				}
+
 				current.muted = true;
 				current.play();
 			}

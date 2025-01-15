@@ -1,11 +1,12 @@
-import type {openBrowser} from './open-browser';
-
-type Await<T> = T extends PromiseLike<infer U> ? U : T;
-type Browser = Await<ReturnType<typeof openBrowser>>;
+import type {LogLevel} from './log-level';
+import {Log} from './logger';
+import type {BrowserReplacer} from './replace-browser';
 
 export const cycleBrowserTabs = (
-	puppeteerInstance: Browser,
-	concurrency: number
+	puppeteerInstance: BrowserReplacer,
+	concurrency: number,
+	logLevel: LogLevel,
+	indent: boolean,
 ): {
 	stopCycling: () => void;
 } => {
@@ -15,13 +16,14 @@ export const cycleBrowserTabs = (
 		};
 	}
 
-	let interval: NodeJS.Timeout | null = null;
+	let interval: Timer | null = null;
 	let i = 0;
 	let stopped = false;
 	const set = () => {
 		interval = setTimeout(() => {
 			puppeteerInstance
-				.pages()
+				.getBrowser()
+				.pages(logLevel, indent)
 				.then((pages) => {
 					if (pages.length === 0) {
 						return;
@@ -30,17 +32,20 @@ export const cycleBrowserTabs = (
 					const currentPage = pages[i % pages.length];
 					i++;
 					if (
-						!currentPage?.isClosed?.() &&
+						!currentPage?.closed &&
 						!stopped &&
 						currentPage?.url() !== 'about:blank'
 					) {
 						return currentPage.bringToFront();
 					}
 				})
-				.then(() => {
-					set();
-				})
-				.catch((err) => console.log(err));
+
+				.catch((err) => Log.error({indent, logLevel}, err))
+				.finally(() => {
+					if (!stopped) {
+						set();
+					}
+				});
 		}, 200);
 	};
 
@@ -54,7 +59,7 @@ export const cycleBrowserTabs = (
 
 			stopped = true;
 
-			return clearInterval(interval);
+			return clearTimeout(interval);
 		},
 	};
 };
