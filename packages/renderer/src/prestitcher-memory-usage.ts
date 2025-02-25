@@ -1,6 +1,7 @@
-import os from 'os';
+import {getAvailableMemory} from './get-available-memory';
+import type {LogLevel} from './log-level';
 
-export const estimateMemoryUsageForPrestitcher = ({
+const estimateMemoryUsageForPrestitcher = ({
 	width,
 	height,
 }: {
@@ -18,11 +19,13 @@ export const estimateMemoryUsageForPrestitcher = ({
 export const shouldUseParallelEncoding = ({
 	width,
 	height,
+	logLevel,
 }: {
 	width: number;
 	height: number;
+	logLevel: LogLevel;
 }) => {
-	const freeMemory = os.freemem();
+	const freeMemory = getAvailableMemory(logLevel);
 	const estimatedUsage = estimateMemoryUsageForPrestitcher({
 		height,
 		width,

@@ -1,4 +1,4 @@
-import {expect, test} from 'vitest';
+import {expect, test} from 'bun:test';
 import {getFrameOutputFileName} from '../get-frame-padded-index';
 
 test('Get frame padded index', () => {
@@ -10,7 +10,7 @@ test('Get frame padded index', () => {
 			index: 0,
 			lastFrame: 100,
 			totalFrames: 100,
-		})
+		}),
 	).toBe('element-00.jpeg');
 
 	expect(
@@ -21,7 +21,7 @@ test('Get frame padded index', () => {
 			index: 50,
 			lastFrame: 100,
 			totalFrames: 100,
-		})
+		}),
 	).toBe('element-50.jpeg');
 
 	expect(
@@ -32,7 +32,7 @@ test('Get frame padded index', () => {
 			index: 50,
 			lastFrame: 100,
 			totalFrames: 101,
-		})
+		}),
 	).toBe('element-050.jpeg');
 	expect(
 		getFrameOutputFileName({
@@ -42,6 +42,6 @@ test('Get frame padded index', () => {
 			index: 50,
 			lastFrame: 99,
 			totalFrames: 100,
-		})
+		}),
 	).toBe('element-50.jpeg');
 });

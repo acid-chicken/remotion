@@ -1,9 +1,13 @@
-import {RenderInternals} from '@remotion/renderer';
+import {NoReactInternals} from 'remotion/no-react';
 
 let stillFrame = 0;
 
 export const setStillFrame = (frame: number) => {
-	RenderInternals.validateFrame(frame, Infinity);
+	NoReactInternals.validateFrame({
+		frame,
+		durationInFrames: Infinity,
+		allowFloats: false,
+	});
 	stillFrame = frame;
 };
 

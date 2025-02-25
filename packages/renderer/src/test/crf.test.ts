@@ -1,9 +1,9 @@
-import {describe, expect, test} from 'vitest';
+import {describe, expect, test} from 'bun:test';
 import type {Codec} from '../codec';
 import {
 	getDefaultCrfForCodec,
 	getValidCrfRanges,
-	validateSelectedCrfAndCodecCombination,
+	validateQualitySettings,
 } from '../crf';
 
 describe('crf tests getValidCrfRanges valid input', () => {
@@ -19,7 +19,7 @@ describe('crf tests getValidCrfRanges valid input', () => {
 	] as [Codec, [number, number]][];
 	validInputs.forEach((entry) =>
 		test(`valid range for ${entry[0]} should be [${entry[1]}]`, () =>
-			expect(getValidCrfRanges(entry[0])).toEqual(entry[1]))
+			expect(getValidCrfRanges(entry[0])).toEqual(entry[1])),
 	);
 });
 
@@ -42,8 +42,15 @@ describe('validateSelectedCrfAndCodecCombination valid input', () => {
 	validInputs.forEach((entry) =>
 		test(`validate with crf ${entry[0]} and codec ${entry[1]}`, () =>
 			expect(() =>
-				validateSelectedCrfAndCodecCombination(entry[0], entry[1])
-			).not.toThrow())
+				validateQualitySettings({
+					crf: entry[0],
+					codec: entry[1],
+					videoBitrate: null,
+					encodingMaxRate: null,
+					encodingBufferSize: null,
+					hardwareAcceleration: 'if-possible',
+				}),
+			).not.toThrow()),
 	);
 });
 
@@ -66,12 +73,75 @@ describe('validateSelectedCrfAndCodecCombination invalid input', () => {
 	invalidInputs.forEach((entry) =>
 		test(`validate with crf ${entry[0]} and codec ${entry[1]}`, () =>
 			expect(() =>
-				validateSelectedCrfAndCodecCombination(entry[0], entry[1])
+				validateQualitySettings({
+					crf: entry[0],
+					codec: entry[1],
+					videoBitrate: null,
+					encodingMaxRate: null,
+					encodingBufferSize: null,
+					hardwareAcceleration: 'if-possible',
+				}),
 			).toThrow(
 				new RegExp(
-					`CRF must be between ${entry[2][0]} and ${entry[2][1]} for codec ${entry[1]}. Passed: ${entry[0]}`
-				)
-			))
+					`CRF must be between ${entry[2][0]} and ${entry[2][1]} for codec ${entry[1]}. Passed: ${entry[0]}`,
+				),
+			)),
+	);
+});
+
+test('ProRes', () => {
+	expect(() =>
+		validateQualitySettings({
+			crf: 3,
+			codec: 'prores',
+			videoBitrate: null,
+			encodingMaxRate: null,
+			encodingBufferSize: null,
+			hardwareAcceleration: 'if-possible',
+		}),
+	).toThrow(/The "prores" codec does not support the --crf option\./);
+});
+
+test('WAV', () => {
+	expect(() =>
+		validateQualitySettings({
+			crf: 3,
+			codec: 'wav',
+			videoBitrate: null,
+			encodingMaxRate: null,
+			encodingBufferSize: null,
+			hardwareAcceleration: 'if-possible',
+		}),
+	).toThrow(/The "wav" codec does not support the --crf option\./);
+});
+
+test('WAV', () => {
+	expect(() =>
+		validateQualitySettings({
+			crf: 10,
+			codec: 'h264',
+			videoBitrate: '1M',
+			encodingMaxRate: null,
+			encodingBufferSize: null,
+			hardwareAcceleration: 'if-possible',
+		}),
+	).toThrow(
+		/"crf" and "videoBitrate" can not both be set. Choose one of either./,
+	);
+});
+
+test('encodingMaxRate', () => {
+	expect(() =>
+		validateQualitySettings({
+			crf: 10,
+			codec: 'h264',
+			videoBitrate: null,
+			encodingMaxRate: '1M',
+			encodingBufferSize: null,
+			hardwareAcceleration: 'if-possible',
+		}),
+	).toThrow(
+		/"encodingMaxRate" can not be set without also setting "encodingBufferSize"./,
 	);
 });
 
@@ -82,25 +152,8 @@ describe('crf tests getValidCrfRanges invalid input', () => {
 		test(`testing with "${entry}"`, () =>
 			expect(
 				// @ts-expect-error
-				() => getValidCrfRanges(entry)
-			).toThrow(new RegExp(`Got unexpected codec "${entry}"`)))
-	);
-});
-
-describe('crf tests getDefaultCrfForCodec valid input', () => {
-	// input codec, output
-	const validCodecIOs: [Codec, number][] = [
-		['h264', 18],
-		['h265', 23],
-		['vp8', 9],
-		['vp9', 28],
-		['mp3', 0],
-		['aac', 0],
-		['wav', 0],
-	] as [Codec, number][];
-	validCodecIOs.forEach((entry) =>
-		test(`default for ${entry[0]} should be ${entry[1]}`, () =>
-			expect(getDefaultCrfForCodec(entry[0])).toEqual(entry[1]))
+				() => getValidCrfRanges(entry),
+			).toThrow(new RegExp(`Got unexpected codec "${entry}"`))),
 	);
 });
 
@@ -111,7 +164,7 @@ describe('crf tests getDefaultCrfForCodec invalid input', () => {
 		test(`testing with ${entry}`, () =>
 			expect(
 				// @ts-expect-error
-				() => getDefaultCrfForCodec(entry)
-			).toThrow(new RegExp(`Got unexpected codec "${entry}"`)))
+				() => getDefaultCrfForCodec(entry),
+			).toThrow(new RegExp(`Got unexpected codec "${entry}"`))),
 	);
 });

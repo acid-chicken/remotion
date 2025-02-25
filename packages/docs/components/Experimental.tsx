@@ -1,12 +1,12 @@
 import React from "react";
 
 export const ExperimentalBadge: React.FC<{
-  children: React.ReactNode;
+  readonly children: React.ReactNode;
 }> = ({ children }) => {
   return (
     <div
       style={{
-        backgroundColor: "rgba(246, 229, 141,0.3)",
+        backgroundColor: "rgba(246, 229, 141, 0.3)",
         borderRadius: 8,
         padding: "12px 12px",
         marginBottom: 24,

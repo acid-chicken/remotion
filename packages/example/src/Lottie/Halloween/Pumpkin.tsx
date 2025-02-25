@@ -2,15 +2,15 @@ import {Lottie} from '@remotion/lottie';
 import {useEffect, useState} from 'react';
 import {
 	AbsoluteFill,
+	Sequence,
 	continueRender,
 	delayRender,
 	interpolate,
-	Sequence,
 	useCurrentFrame,
 	useVideoConfig,
 } from 'remotion';
-import './common.css';
 import HeaderAndCredits from './HeaderAndCredits';
+import './common.css';
 
 const Pumpkin = () => {
 	const frame = useCurrentFrame();
@@ -21,7 +21,7 @@ const Pumpkin = () => {
 	const animationOpacity = interpolate(
 		animationInput,
 		[0, 5, durationInFrames - 20, durationInFrames],
-		[0, 1, 1, 0]
+		[0, 1, 1, 0],
 	);
 
 	const [animationData, setAnimationData] = useState(null);
@@ -53,7 +53,7 @@ const LottiePumpkin: React.FC = () => {
 
 	return (
 		<div className="container" style={{height, width}}>
-			<Sequence from={0} durationInFrames={durationInFrames}>
+			<Sequence durationInFrames={durationInFrames}>
 				<Pumpkin />
 			</Sequence>
 			<Sequence from={30}>

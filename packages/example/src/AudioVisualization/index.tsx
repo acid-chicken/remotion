@@ -1,4 +1,8 @@
-import {useAudioData, visualizeAudio} from '@remotion/media-utils';
+import {
+	useAudioData,
+	visualizeAudio,
+	visualizeAudioWaveform,
+} from '@remotion/media-utils';
 import {transparentize} from 'polished';
 import React from 'react';
 import {
@@ -6,6 +10,7 @@ import {
 	Audio,
 	Img,
 	interpolate,
+	staticFile,
 	useCurrentFrame,
 	useVideoConfig,
 } from 'remotion';
@@ -45,9 +50,9 @@ const Orb = styled.div`
 `;
 
 const Text: React.FC<{
-	color: string;
-	transform: string;
-	blur: number;
+	readonly color: string;
+	readonly transform: string;
+	readonly blur: number;
 }> = ({color, transform, blur}) => {
 	const frame = useCurrentFrame();
 	const cool = (offset: number) => Math.sin((frame + offset) / 10);
@@ -81,12 +86,14 @@ const Text: React.FC<{
 	);
 };
 
+const WAVEFORM_SAMPLES = 32;
+
 const AudioVisualization: React.FC = () => {
 	const frame = useCurrentFrame();
 	const {width, height, fps} = useVideoConfig();
 	const audioData = useAudioData(music);
-
-	if (!audioData) {
+	const audioDataVoice = useAudioData(staticFile('podcast.wav'));
+	if (!audioData || !audioDataVoice) {
 		return null;
 	}
 
@@ -96,6 +103,15 @@ const AudioVisualization: React.FC = () => {
 		audioData,
 		numberOfSamples: 32,
 	});
+	const waveform = visualizeAudioWaveform({
+		fps,
+		frame,
+		audioData: audioDataVoice,
+		numberOfSamples: WAVEFORM_SAMPLES,
+		windowInSeconds: 1 / fps,
+		channel: 0,
+	});
+	console.log({waveform});
 
 	const scale =
 		1 +
@@ -111,7 +127,7 @@ const AudioVisualization: React.FC = () => {
 	const rgbEffect = interpolate(
 		visualization[Math.floor(visualization.length / 3)],
 		[0, 0.5],
-		[0, 30]
+		[0, 30],
 	);
 
 	const dropStart = 1989;
@@ -180,8 +196,8 @@ const AudioVisualization: React.FC = () => {
 									[0, 1],
 									{
 										extrapolateLeft: 'clamp',
-									}
-								) * 600
+									},
+								) * 600,
 							) *
 								6) *
 						day;

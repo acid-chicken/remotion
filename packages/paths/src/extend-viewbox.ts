@@ -1,7 +1,6 @@
-/**
- * Extends a viewbox in all directions by a scale factor.
- * @param {string} currentViewBox A valid SVG viewBox
- * @link https://remotion.dev/docs/paths/extend-viewbox
+/*
+ * @description Widens an SVG viewBox in all directions by a certain scale factor.
+ * @see [Documentation](https://www.remotion.dev/docs/paths/extend-viewbox)
  */
 export const extendViewBox = (currentViewBox: string, scale: number) => {
 	const relativeScale = scale - 1;
@@ -13,20 +12,20 @@ export const extendViewBox = (currentViewBox: string, scale: number) => {
 
 	if (splitted.length !== 4) {
 		throw new Error(
-			`currentViewBox must be 4 valid numbers, but got "${currentViewBox}"`
+			`currentViewBox must be 4 valid numbers, but got "${currentViewBox}"`,
 		);
 	}
 
 	for (const part of splitted) {
 		if (Number.isNaN(part)) {
 			throw new Error(
-				`currentViewBox must be 4 valid numbers, but got "${currentViewBox}"`
+				`currentViewBox must be 4 valid numbers, but got "${currentViewBox}"`,
 			);
 		}
 
 		if (!Number.isFinite(part)) {
 			throw new Error(
-				`currentViewBox must be 4 valid numbers, but got "${currentViewBox}"`
+				`currentViewBox must be 4 valid numbers, but got "${currentViewBox}"`,
 			);
 		}
 	}

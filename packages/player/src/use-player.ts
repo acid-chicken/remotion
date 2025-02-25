@@ -1,8 +1,9 @@
 import type {SyntheticEvent} from 'react';
 import {useCallback, useContext, useMemo, useRef, useState} from 'react';
 import {Internals} from 'remotion';
-import {PlayerEventEmitterContext} from './emitter-context';
-import type {PlayerEmitter} from './event-emitter';
+import {PlayerEventEmitterContext} from './emitter-context.js';
+import type {PlayerEmitter} from './event-emitter.js';
+import {useFrameImperative} from './use-frame-imperative.js';
 
 type UsePlayerMethods = {
 	frameBack: (frames: number) => void;
@@ -11,13 +12,15 @@ type UsePlayerMethods = {
 	isFirstFrame: boolean;
 	emitter: PlayerEmitter;
 	playing: boolean;
-	play: (e?: SyntheticEvent) => void;
+	play: (e?: SyntheticEvent | PointerEvent) => void;
 	pause: () => void;
 	pauseAndReturnToPlayStart: () => void;
 	seek: (newFrame: number) => void;
 	getCurrentFrame: () => number;
 	isPlaying: () => boolean;
 	hasPlayed: boolean;
+	isBuffering: () => boolean;
+	toggle: (e?: SyntheticEvent | PointerEvent) => void;
 };
 
 export const usePlayer = (): UsePlayerMethods => {
@@ -31,8 +34,9 @@ export const usePlayer = (): UsePlayerMethods => {
 	const audioContext = useContext(Internals.SharedAudioContext);
 	const {audioAndVideoTags} = useContext(Internals.Timeline.TimelineContext);
 
-	const frameRef = useRef<number>();
+	const frameRef = useRef<number>(frame);
 	frameRef.current = frame;
+
 	const video = Internals.useVideo();
 	const config = Internals.useUnsafeVideoConfig();
 	const emitter = useContext(PlayerEventEmitterContext);
@@ -45,16 +49,30 @@ export const usePlayer = (): UsePlayerMethods => {
 		throw new TypeError('Expected Player event emitter context');
 	}
 
+	const bufferingContext = useContext(Internals.BufferingContextReact);
+	if (!bufferingContext) {
+		throw new Error(
+			'Missing the buffering context. Most likely you have a Remotion version mismatch.',
+		);
+	}
+
+	const {buffering} = bufferingContext;
+
 	const seek = useCallback(
 		(newFrame: number) => {
-			setTimelinePosition(newFrame);
+			if (video?.id) {
+				setTimelinePosition((c) => ({...c, [video.id]: newFrame}));
+			}
+
+			frameRef.current = newFrame;
+
 			emitter.dispatchSeek(newFrame);
 		},
-		[emitter, setTimelinePosition]
+		[emitter, setTimelinePosition, video?.id],
 	);
 
 	const play = useCallback(
-		(e?: SyntheticEvent) => {
+		(e?: SyntheticEvent | PointerEvent) => {
 			if (imperativePlaying.current) {
 				return;
 			}
@@ -76,7 +94,9 @@ export const usePlayer = (): UsePlayerMethods => {
 			 * Play audios and videos directly here so they can benefit from
 			 * being triggered by a click
 			 */
-			audioAndVideoTags.current.forEach((a) => a.play());
+			audioAndVideoTags.current.forEach((a) =>
+				a.play('player play() was called and playing audio from a click'),
+			);
 
 			imperativePlaying.current = true;
 			setPlaying(true);
@@ -91,7 +111,7 @@ export const usePlayer = (): UsePlayerMethods => {
 			emitter,
 			seek,
 			audioAndVideoTags,
-		]
+		],
 	);
 
 	const pause = useCallback(() => {
@@ -106,18 +126,23 @@ export const usePlayer = (): UsePlayerMethods => {
 	const pauseAndReturnToPlayStart = useCallback(() => {
 		if (imperativePlaying.current) {
 			imperativePlaying.current = false;
-
-			setTimelinePosition(playStart.current as number);
-			setPlaying(false);
-			emitter.dispatchPause();
+			frameRef.current = playStart.current as number;
+			if (config) {
+				setTimelinePosition((c) => ({
+					...c,
+					[config.id]: playStart.current as number,
+				}));
+				setPlaying(false);
+				emitter.dispatchPause();
+			}
 		}
-	}, [emitter, imperativePlaying, setPlaying, setTimelinePosition]);
+	}, [config, emitter, imperativePlaying, setPlaying, setTimelinePosition]);
 
-	const hasVideo = Boolean(video);
+	const videoId = video?.id;
 
 	const frameBack = useCallback(
 		(frames: number) => {
-			if (!hasVideo) {
+			if (!videoId) {
 				return null;
 			}
 
@@ -125,16 +150,20 @@ export const usePlayer = (): UsePlayerMethods => {
 				return;
 			}
 
-			setFrame((f) => {
-				return Math.max(0, f - frames);
+			setFrame((c) => {
+				const prev = c[videoId] ?? window.remotion_initialFrame ?? 0;
+				return {
+					...c,
+					[videoId]: Math.max(0, prev - frames),
+				};
 			});
 		},
-		[hasVideo, imperativePlaying, setFrame]
+		[imperativePlaying, setFrame, videoId],
 	);
 
 	const frameForward = useCallback(
 		(frames: number) => {
-			if (!hasVideo) {
+			if (!videoId) {
 				return null;
 			}
 
@@ -142,9 +171,28 @@ export const usePlayer = (): UsePlayerMethods => {
 				return;
 			}
 
-			setFrame((f) => Math.min(lastFrame, f + frames));
+			setFrame((c) => {
+				const prev = c[videoId] ?? window.remotion_initialFrame ?? 0;
+				return {
+					...c,
+					[videoId]: Math.min(lastFrame, prev + frames),
+				};
+			});
 		},
-		[hasVideo, imperativePlaying, lastFrame, setFrame]
+		[videoId, imperativePlaying, lastFrame, setFrame],
+	);
+
+	const getCurrentFrame = useFrameImperative();
+
+	const toggle = useCallback(
+		(e?: SyntheticEvent | PointerEvent) => {
+			if (imperativePlaying.current) {
+				pause();
+			} else {
+				play(e);
+			}
+		},
+		[imperativePlaying, pause, play],
 	);
 
 	const returnValue: UsePlayerMethods = useMemo(() => {
@@ -158,24 +206,30 @@ export const usePlayer = (): UsePlayerMethods => {
 			pause,
 			seek,
 			isFirstFrame,
-			getCurrentFrame: () => frameRef.current as number,
-			isPlaying: () => imperativePlaying.current as boolean,
+			getCurrentFrame,
+			isPlaying: () => imperativePlaying.current,
+			isBuffering: () => buffering.current,
 			pauseAndReturnToPlayStart,
 			hasPlayed,
+			remotionInternal_currentFrameRef: frameRef,
+			toggle,
 		};
 	}, [
+		buffering,
+		emitter,
 		frameBack,
 		frameForward,
-		isLastFrame,
-		emitter,
-		playing,
-		play,
-		pause,
-		seek,
-		isFirstFrame,
-		pauseAndReturnToPlayStart,
-		imperativePlaying,
+		getCurrentFrame,
 		hasPlayed,
+		imperativePlaying,
+		isFirstFrame,
+		isLastFrame,
+		pause,
+		pauseAndReturnToPlayStart,
+		play,
+		playing,
+		seek,
+		toggle,
 	]);
 
 	return returnValue;
