@@ -1,37 +1,21 @@
-import fs, {mkdirSync} from 'fs';
-import path from 'path';
-import type {TAsset} from 'remotion';
+import fs, {mkdirSync} from 'node:fs';
+import path from 'node:path';
 import {deleteDirectory} from '../delete-directory';
+import {OffthreadVideoServerEmitter} from '../offthread-video-server';
+import type {FrameAndAssets} from '../render-frames';
 import {tmpDir} from '../tmp-dir';
-
-type EncodingStatus =
-	| {
-			type: 'encoding';
-	  }
-	| {
-			type: 'done';
-			src: string;
-	  }
-	| undefined;
-
-export type SpecialVCodecForTransparency = 'vp9' | 'vp8' | 'none';
-
-export type Vp9Result = {
-	specialVcodec: SpecialVCodecForTransparency;
-	needsResize: [number, number] | null;
-};
-export type VideoDurationResult = {
-	duration: number | null;
-	fps: number | null;
-};
+import type {RenderMediaOnDownload} from './download-and-map-assets-to-file';
 
 export type AudioChannelsAndDurationResultCache = {
 	channels: number;
 	duration: number | null;
+	startTime: number | null;
 };
 
 export type DownloadMap = {
 	id: string;
+	emitter: OffthreadVideoServerEmitter;
+	downloadListeners: RenderMediaOnDownload[];
 	isDownloadingMap: {
 		[src: string]:
 			| {
@@ -47,11 +31,6 @@ export type DownloadMap = {
 			| undefined;
 	};
 	listeners: {[key: string]: {[downloadDir: string]: (() => void)[]}};
-	lastFrameMap: Record<string, {lastAccessed: number; data: Buffer}>;
-	isBeyondLastFrameMap: Record<string, number>;
-	isVp9VideoCache: Record<string, Vp9Result>;
-	ensureFileHasPresentationTimestamp: Record<string, EncodingStatus>;
-	videoDurationResultCache: Record<string, VideoDurationResult>;
 	durationOfAssetCache: Record<string, AudioChannelsAndDurationResultCache>;
 	downloadDir: string;
 	preEncode: string;
@@ -60,13 +39,21 @@ export type DownloadMap = {
 	audioPreprocessing: string;
 	stitchFrames: string;
 	assetDir: string;
+	compositingDir: string;
+	preventCleanup: () => void;
+	allowCleanup: () => void;
+	isPreventedFromCleanup: () => boolean;
 };
 
 export type RenderAssetInfo = {
-	assets: TAsset[][];
+	assets: FrameAndAssets[];
 	imageSequenceName: string;
 	firstFrameIndex: number;
 	downloadMap: DownloadMap;
+	chunkLengthInSeconds: number;
+	trimLeftOffset: number;
+	trimRightOffset: number;
+	forSeamlessAacConcatenation: boolean;
 };
 
 const makeAndReturn = (dir: string, name: string) => {
@@ -75,42 +62,64 @@ const makeAndReturn = (dir: string, name: string) => {
 	return p;
 };
 
-const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+const dontInlineThis = 'package.json';
 
-const packageJson = fs.existsSync(packageJsonPath)
-	? JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-	: null;
+let packageJsonPath = null;
+
+try {
+	packageJsonPath = require.resolve('../../' + dontInlineThis);
+} catch {}
+
+const packageJson =
+	packageJsonPath && fs.existsSync(packageJsonPath)
+		? JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+		: null;
 
 export const makeDownloadMap = (): DownloadMap => {
 	const dir = tmpDir(
 		packageJson
 			? `remotion-v${packageJson.version.replace(/\./g, '-')}-assets`
-			: 'remotion-assets'
+			: 'remotion-assets',
 	);
+
+	let prevented = false;
 
 	return {
 		isDownloadingMap: {},
 		hasBeenDownloadedMap: {},
 		listeners: {},
-		lastFrameMap: {},
-		isBeyondLastFrameMap: {},
-		ensureFileHasPresentationTimestamp: {},
-		isVp9VideoCache: {},
-		videoDurationResultCache: {},
 		durationOfAssetCache: {},
 		id: String(Math.random()),
 		assetDir: dir,
+		downloadListeners: [],
 		downloadDir: makeAndReturn(dir, 'remotion-assets-dir'),
 		complexFilter: makeAndReturn(dir, 'remotion-complex-filter'),
 		preEncode: makeAndReturn(dir, 'pre-encode'),
 		audioMixing: makeAndReturn(dir, 'remotion-audio-mixing'),
 		audioPreprocessing: makeAndReturn(dir, 'remotion-audio-preprocessing'),
 		stitchFrames: makeAndReturn(dir, 'remotion-stitch-temp-dir'),
+		compositingDir: makeAndReturn(dir, 'remotion-compositing-temp-dir'),
+		emitter: new OffthreadVideoServerEmitter(),
+		preventCleanup: () => {
+			prevented = true;
+		},
+		allowCleanup: () => {
+			prevented = false;
+		},
+		isPreventedFromCleanup: () => {
+			return prevented;
+		},
 	};
 };
 
-export const cleanDownloadMap = async (downloadMap: DownloadMap) => {
-	await deleteDirectory(downloadMap.downloadDir);
-	await deleteDirectory(downloadMap.complexFilter);
-	await deleteDirectory(downloadMap.assetDir);
+export const cleanDownloadMap = (downloadMap: DownloadMap) => {
+	if (downloadMap.isPreventedFromCleanup()) {
+		return;
+	}
+
+	deleteDirectory(downloadMap.downloadDir);
+	deleteDirectory(downloadMap.complexFilter);
+	deleteDirectory(downloadMap.compositingDir);
+	// Assets dir must be last since the others are contained
+	deleteDirectory(downloadMap.assetDir);
 };

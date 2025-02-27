@@ -1,12 +1,12 @@
-import {Internals} from 'remotion';
-import {cleanFnStore} from '../../api/mock-functions';
+import {NoReactInternals} from 'remotion/no-react';
+import {cleanFnStore} from '../mocks/mock-functions';
 
 let stdoutOutput: string[] = [];
 let stderrOutput: string[] = [];
 
 export const getProcessWriteOutput = () => {
 	return stdoutOutput
-		.filter(Internals.truthy)
+		.filter(NoReactInternals.truthy)
 		.map((c) => c.toString())
 		.join('\n');
 };
@@ -16,7 +16,7 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalStderr = process.stderr.write;
 
-beforeEach(() => {
+export const doBefore = () => {
 	stdoutOutput = [];
 	stderrOutput = [];
 	cleanFnStore();
@@ -41,11 +41,11 @@ beforeEach(() => {
 		// originalStderr(str);
 		stderrOutput.push(str);
 	};
-});
+};
 
-afterEach(() => {
+export const doAfter = () => {
 	process.stdout.write = originalStdout;
 	process.stderr.write = originalStderr;
 	console.log = originalConsoleLog;
 	console.error = originalConsoleError;
-});
+};

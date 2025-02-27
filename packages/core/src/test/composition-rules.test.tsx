@@ -1,12 +1,13 @@
-/**
- * @vitest-environment jsdom
- */
-import {render} from '@testing-library/react';
+import {cleanup, render} from '@testing-library/react';
+import {afterEach, describe, expect, test} from 'bun:test';
 import React from 'react';
-import {describe, expect, test} from 'vitest';
-import {Composition} from '../Composition';
-import {RemotionRoot} from '../RemotionRoot';
-import {expectToThrow} from './expect-to-throw';
+import {Composition} from '../Composition.js';
+import {RemotionRoot} from '../RemotionRoot.js';
+import {expectToThrow} from './expect-to-throw.js';
+
+afterEach(() => {
+	cleanup();
+});
 
 const AnyComp: React.FC = () => null;
 
@@ -22,9 +23,9 @@ describe('Render composition-rules should throw with invalid props', () => {
 						height={100}
 						id="invalid@id"
 						width={100}
-					/>
+					/>,
 				),
-			/can only contain/
+			/can only contain/,
 		);
 	});
 
@@ -39,9 +40,9 @@ describe('Render composition-rules should throw with invalid props', () => {
 						fps={30}
 						height={100}
 						width={100}
-					/>
+					/>,
 				),
-			/No id for composition passed./
+			/No id for composition passed./,
 		);
 	});
 
@@ -49,7 +50,7 @@ describe('Render composition-rules should throw with invalid props', () => {
 		expectToThrow(
 			() =>
 				render(
-					<RemotionRoot>
+					<RemotionRoot numberOfAudioTags={0} logLevel="info">
 						<Composition
 							lazyComponent={() => Promise.resolve({default: AnyComp})}
 							durationInFrames={100}
@@ -66,9 +67,9 @@ describe('Render composition-rules should throw with invalid props', () => {
 							width={100}
 							id="id"
 						/>
-					</RemotionRoot>
+					</RemotionRoot>,
 				),
-			/Multiple composition with id id/
+			/Multiple composition with id id/,
 		);
 	});
 });
@@ -83,8 +84,8 @@ describe('Render composition-rules should not with valid props', () => {
 					height={100}
 					id="valid-id"
 					width={100}
-				/>
-			)
+				/>,
+			),
 		).not.toThrow();
 	});
 });

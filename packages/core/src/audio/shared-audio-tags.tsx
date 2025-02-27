@@ -1,15 +1,17 @@
+import type {ComponentType, LazyExoticComponent} from 'react';
 import React, {
 	createContext,
 	createRef,
 	useCallback,
 	useContext,
-	useInsertionEffect,
-	useLayoutEffect,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
 } from 'react';
-import type {RemotionAudioProps} from './props';
+import {useLogLevel, useMountTime} from '../log-level-context.js';
+import {playAndHandleNotAllowedError} from '../play-and-handle-not-allowed-error.js';
+import type {RemotionAudioProps} from './props.js';
 
 /**
  * This functionality of Remotion will keep a certain amount
@@ -26,7 +28,7 @@ import type {RemotionAudioProps} from './props';
 type AudioElem = {
 	id: number;
 	props: RemotionAudioProps;
-	el: React.RefObject<HTMLAudioElement>;
+	el: React.RefObject<HTMLAudioElement | null>;
 	audioId: string;
 };
 
@@ -36,14 +38,18 @@ const EMPTY_AUDIO =
 type SharedContext = {
 	registerAudio: (aud: RemotionAudioProps, audioId: string) => AudioElem;
 	unregisterAudio: (id: number) => void;
-	updateAudio: (id: number, aud: RemotionAudioProps) => void;
+	updateAudio: (options: {
+		id: number;
+		aud: RemotionAudioProps;
+		audioId: string;
+	}) => void;
 	playAllAudios: () => void;
 	numberOfAudioTags: number;
 };
 
 const compareProps = (
 	obj1: Record<string, unknown>,
-	obj2: Record<string, unknown>
+	obj2: Record<string, unknown>,
 ) => {
 	const keysA = Object.keys(obj1).sort();
 	const keysB = Object.keys(obj2).sort();
@@ -74,8 +80,8 @@ const didPropChange = (key: string, newProp: unknown, prevProp: unknown) => {
 		!(newProp as string).startsWith('data:')
 	) {
 		return (
-			new URL(prevProp as string, window.location.origin).toString() !==
-			new URL(newProp as string, window.location.origin).toString()
+			new URL(prevProp as string, window.origin).toString() !==
+			new URL(newProp as string, window.origin).toString()
 		);
 	}
 
@@ -89,15 +95,18 @@ const didPropChange = (key: string, newProp: unknown, prevProp: unknown) => {
 export const SharedAudioContext = createContext<SharedContext | null>(null);
 
 export const SharedAudioContextProvider: React.FC<{
-	numberOfAudioTags: number;
-	children: React.ReactNode;
-}> = ({children, numberOfAudioTags}) => {
+	readonly numberOfAudioTags: number;
+	readonly children: React.ReactNode;
+	readonly component: LazyExoticComponent<
+		ComponentType<Record<string, unknown>>
+	> | null;
+}> = ({children, numberOfAudioTags, component}) => {
 	const audios = useRef<AudioElem[]>([]);
 	const [initialNumberOfAudioTags] = useState(numberOfAudioTags);
 
 	if (numberOfAudioTags !== initialNumberOfAudioTags) {
 		throw new Error(
-			'The number of shared audio tags has changed dynamically. Once you have set this property, you cannot change it afterwards.'
+			'The number of shared audio tags has changed dynamically. Once you have set this property, you cannot change it afterwards.',
 		);
 	}
 
@@ -108,7 +117,7 @@ export const SharedAudioContextProvider: React.FC<{
 	}, [numberOfAudioTags]);
 
 	const takenAudios = useRef<(false | number)[]>(
-		new Array(numberOfAudioTags).fill(false)
+		new Array(numberOfAudioTags).fill(false),
 	);
 
 	const rerenderAudios = useCallback(() => {
@@ -152,7 +161,7 @@ export const SharedAudioContextProvider: React.FC<{
 				throw new Error(
 					`Tried to simultaneously mount ${
 						numberOfAudioTags + 1
-					} <Audio /> tags at the same time. With the current settings, the maximum amount of <Audio /> tags is limited to ${numberOfAudioTags} at the same time. Remotion pre-mounts silent audio tags to help avoid browser autoplay restrictions. See https://remotion.dev/docs/player/autoplay#use-the-numberofsharedaudiotags-property for more information on how to increase this limit.`
+					} <Audio /> tags at the same time. With the current settings, the maximum amount of <Audio /> tags is limited to ${numberOfAudioTags} at the same time. Remotion pre-mounts silent audio tags to help avoid browser autoplay restrictions. See https://remotion.dev/docs/player/autoplay#using-the-numberofsharedaudiotags-prop for more information on how to increase this limit.`,
 				);
 			}
 
@@ -171,7 +180,7 @@ export const SharedAudioContextProvider: React.FC<{
 			rerenderAudios();
 			return newElem;
 		},
-		[numberOfAudioTags, refs, rerenderAudios]
+		[numberOfAudioTags, refs, rerenderAudios],
 	);
 
 	const unregisterAudio = useCallback(
@@ -189,11 +198,19 @@ export const SharedAudioContextProvider: React.FC<{
 
 			rerenderAudios();
 		},
-		[refs, rerenderAudios]
+		[refs, rerenderAudios],
 	);
 
 	const updateAudio = useCallback(
-		(id: number, aud: RemotionAudioProps) => {
+		({
+			aud,
+			audioId,
+			id,
+		}: {
+			id: number;
+			aud: RemotionAudioProps;
+			audioId: string;
+		}) => {
 			let changed = false;
 
 			audios.current = audios.current?.map((prevA): AudioElem => {
@@ -207,6 +224,7 @@ export const SharedAudioContextProvider: React.FC<{
 					return {
 						...prevA,
 						props: aud,
+						audioId,
 					};
 				}
 
@@ -217,14 +235,24 @@ export const SharedAudioContextProvider: React.FC<{
 				rerenderAudios();
 			}
 		},
-		[rerenderAudios]
+		[rerenderAudios],
 	);
+
+	const logLevel = useLogLevel();
+	const mountTime = useMountTime();
 
 	const playAllAudios = useCallback(() => {
 		refs.forEach((ref) => {
-			ref.ref.current?.play();
+			playAndHandleNotAllowedError({
+				mediaRef: ref.ref,
+				mediaType: 'audio',
+				onAutoPlayError: null,
+				logLevel,
+				mountTime,
+				reason: 'playing all audios',
+			});
 		});
-	}, [refs]);
+	}, [logLevel, mountTime, refs]);
 
 	const value: SharedContext = useMemo(() => {
 		return {
@@ -242,10 +270,35 @@ export const SharedAudioContextProvider: React.FC<{
 		updateAudio,
 	]);
 
+	// Fixing a bug: In React, if a component is unmounted using useInsertionEffect, then
+	// the cleanup function does sometimes not work properly. That is why when we
+	// are changing the composition, we reset the audio state.
+
+	// TODO: Possibly this does not save the problem completely, since the
+	// if an audio tag that is inside a sequence will also not be removed
+	// from the shared audios.
+
+	const resetAudio = useCallback(() => {
+		takenAudios.current = new Array(numberOfAudioTags).fill(false);
+		audios.current = [];
+		rerenderAudios();
+	}, [numberOfAudioTags, rerenderAudios]);
+
+	useEffect(() => {
+		return () => {
+			resetAudio();
+		};
+	}, [component, resetAudio]);
+
 	return (
 		<SharedAudioContext.Provider value={value}>
 			{refs.map(({id, ref}) => {
-				return <audio key={id} ref={ref} src={EMPTY_AUDIO} />;
+				return (
+					// Without preload="metadata", iOS will seek the time internally
+					// but not actually with sound. Adding `preload="metadata"` helps here.
+					// https://discord.com/channels/809501355504959528/817306414069710848/1130519583367888906
+					<audio key={id} ref={ref} preload="metadata" src={EMPTY_AUDIO} />
+				);
 			})}
 			{children}
 		</SharedAudioContext.Provider>
@@ -275,22 +328,26 @@ export const useSharedAudio = (aud: RemotionAudioProps, audioId: string) => {
 	 * Effects in React 18 fire twice, and we are looking for a way to only fire it once.
 	 * - useInsertionEffect only fires once. If it's available we are in React 18.
 	 * - useLayoutEffect only fires once in React 17.
+	 *
+	 * Need to import it from React to fix React 17 ESM support.
 	 */
-	const effectToUse = useInsertionEffect ?? useLayoutEffect;
+	const effectToUse = React.useInsertionEffect ?? React.useLayoutEffect;
 
-	effectToUse(() => {
-		if (ctx && ctx.numberOfAudioTags > 0) {
-			ctx.updateAudio(elem.id, aud);
-		}
-	}, [aud, ctx, elem.id]);
-
-	effectToUse(() => {
-		return () => {
+	if (typeof document !== 'undefined') {
+		effectToUse(() => {
 			if (ctx && ctx.numberOfAudioTags > 0) {
-				ctx.unregisterAudio(elem.id);
+				ctx.updateAudio({id: elem.id, aud, audioId});
 			}
-		};
-	}, [ctx, elem.id]);
+		}, [aud, ctx, elem.id, audioId]);
+
+		effectToUse(() => {
+			return () => {
+				if (ctx && ctx.numberOfAudioTags > 0) {
+					ctx.unregisterAudio(elem.id);
+				}
+			};
+		}, [ctx, elem.id]);
+	}
 
 	return elem;
 };

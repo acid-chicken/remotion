@@ -1,3 +1,4 @@
+/* eslint-disable react/require-default-props */
 import {
 	forwardRef,
 	useEffect,
@@ -17,7 +18,7 @@ const calcArgs = (
 	canvasSize: {
 		width: number;
 		height: number;
-	}
+	},
 ): [number, number, number, number, number, number, number, number] => {
 	switch (fit) {
 		case 'fill': {
@@ -36,10 +37,12 @@ const calcArgs = (
 		case 'contain': {
 			const ratio = Math.min(
 				canvasSize.width / frameSize.width,
-				canvasSize.height / frameSize.height
+				canvasSize.height / frameSize.height,
 			);
+
 			const centerX = (canvasSize.width - frameSize.width * ratio) / 2;
 			const centerY = (canvasSize.height - frameSize.height * ratio) / 2;
+
 			return [
 				0,
 				0,
@@ -55,10 +58,11 @@ const calcArgs = (
 		case 'cover': {
 			const ratio = Math.max(
 				canvasSize.width / frameSize.width,
-				canvasSize.height / frameSize.height
+				canvasSize.height / frameSize.height,
 			);
 			const centerX = (canvasSize.width - frameSize.width * ratio) / 2;
 			const centerY = (canvasSize.height - frameSize.height * ratio) / 2;
+
 			return [
 				0,
 				0,
@@ -77,6 +81,10 @@ const calcArgs = (
 };
 
 const makeCanvas = () => {
+	if (typeof document === 'undefined') {
+		return null;
+	}
+
 	const canvas = document.createElement('canvas');
 	const ctx = canvas.getContext('2d');
 
@@ -87,13 +95,13 @@ const makeCanvas = () => {
 };
 
 type Props = {
-	index: number;
-	frames: ImageData[];
-	width?: number;
-	height?: number;
-	fit: GifFillMode;
-	className?: string;
-	style?: React.CSSProperties;
+	readonly index: number;
+	readonly frames: ImageData[];
+	readonly width?: number;
+	readonly height?: number;
+	readonly fit: GifFillMode;
+	readonly className?: string;
+	readonly style?: React.CSSProperties;
 };
 
 export const Canvas = forwardRef(
@@ -105,13 +113,9 @@ export const Canvas = forwardRef(
 
 		const size = useElementSize(canvasRef);
 
-		useImperativeHandle(
-			ref,
-			() => {
-				return canvasRef.current as HTMLCanvasElement;
-			},
-			[]
-		);
+		useImperativeHandle(ref, () => {
+			return canvasRef.current as HTMLCanvasElement;
+		}, []);
 
 		useEffect(() => {
 			if (!size) {
@@ -137,7 +141,7 @@ export const Canvas = forwardRef(
 				tempCtx.putImageData(imageData, 0, 0);
 				ctx.drawImage(
 					tempCtx.canvas,
-					...calcArgs(fit, imageData, {width: size.width, height: size.height})
+					...calcArgs(fit, imageData, {width: size.width, height: size.height}),
 				);
 			}
 		}, [index, frames, fit, tempCtx, size]);
@@ -151,5 +155,5 @@ export const Canvas = forwardRef(
 				height={height ?? size?.height}
 			/>
 		);
-	}
+	},
 );
