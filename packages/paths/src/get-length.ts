@@ -2,12 +2,11 @@
 
 import {construct} from './helpers/construct';
 
-/**
- * Gets the length of an SVG path.
- * @param {string} path A valid SVG path
- * @link https://remotion.dev/docs/paths/get-length
+/*
+ * @description Gets the length of an SVG path.
+ * @see [Documentation](https://www.remotion.dev/docs/paths/get-length)
  */
 export const getLength = (path: string) => {
 	const constructucted = construct(path);
-	return constructucted.length;
+	return constructucted.totalLength;
 };

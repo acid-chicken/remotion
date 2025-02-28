@@ -1,6 +1,12 @@
-import path from 'path';
+// Don't concatenate as we don't want Bun bundler to hardcode this
+import path from 'node:path';
 
-export const FUNCTION_ZIP = path.join(
-	path.resolve(__dirname, '..', '..'),
-	`remotionlambda.zip`
+const b = '../';
+const a = 'remotionlambda-arm64.zip';
+
+export const FUNCTION_ZIP_ARM64 = path.resolve(
+	require.resolve(`../` + b),
+	'..',
+	'..',
+	a,
 );

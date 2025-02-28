@@ -1,6 +1,6 @@
-export const validateSingleFrameFrame = (
+export const validateSingleFrame = (
 	frame: unknown,
-	variableName: string
+	variableName: string,
 ): number | null => {
 	if (typeof frame === 'undefined' || frame === null) {
 		return frame ?? null;
@@ -8,25 +8,25 @@ export const validateSingleFrameFrame = (
 
 	if (typeof frame !== 'number') {
 		throw new TypeError(
-			`"${variableName}" must be a number, but is ${JSON.stringify(frame)}`
+			`"${variableName}" must be a number, but is ${JSON.stringify(frame)}`,
 		);
 	}
 
 	if (Number.isNaN(frame)) {
 		throw new TypeError(
-			`"${variableName}" must not be NaN, but is ${JSON.stringify(frame)}`
+			`"${variableName}" must not be NaN, but is ${JSON.stringify(frame)}`,
 		);
 	}
 
 	if (!Number.isFinite(frame)) {
 		throw new TypeError(
-			`"${variableName}" must be finite, but is ${JSON.stringify(frame)}`
+			`"${variableName}" must be finite, but is ${JSON.stringify(frame)}`,
 		);
 	}
 
 	if (frame % 1 !== 0) {
 		throw new TypeError(
-			`"${variableName}" must be an integer, but is ${JSON.stringify(frame)}`
+			`"${variableName}" must be an integer, but is ${JSON.stringify(frame)}`,
 		);
 	}
 
@@ -42,9 +42,9 @@ export const validateInOutFrames = ({
 	outFrame: unknown;
 	durationInFrames: number;
 }) => {
-	const validatedInFrame = validateSingleFrameFrame(inFrame, 'inFrame');
-	const validateOutFrame = validateSingleFrameFrame(outFrame, 'outFrame');
-	if (validatedInFrame === null && validateOutFrame === null) {
+	const validatedInFrame = validateSingleFrame(inFrame, 'inFrame');
+	const validatedOutFrame = validateSingleFrame(outFrame, 'outFrame');
+	if (validatedInFrame === null && validatedOutFrame === null) {
 		return;
 	}
 
@@ -52,40 +52,40 @@ export const validateInOutFrames = ({
 	if (validatedInFrame !== null && validatedInFrame > durationInFrames - 1) {
 		throw new Error(
 			'inFrame must be less than (durationInFrames - 1), but is ' +
-				validatedInFrame
+				validatedInFrame,
 		);
 	}
 
-	if (validateOutFrame !== null && validateOutFrame > durationInFrames - 1) {
+	if (validatedOutFrame !== null && validatedOutFrame > durationInFrames - 1) {
 		throw new Error(
 			'outFrame must be less than (durationInFrames - 1), but is ' +
-				validatedInFrame
+				validatedOutFrame,
 		);
 	}
 
 	// Must not be under 0
 	if (validatedInFrame !== null && validatedInFrame < 0) {
 		throw new Error(
-			'inFrame must be greater than 0, but is ' + validatedInFrame
+			'inFrame must be greater than 0, but is ' + validatedInFrame,
 		);
 	}
 
-	if (validateOutFrame !== null && validateOutFrame < 0) {
+	if (validatedOutFrame !== null && validatedOutFrame <= 0) {
 		throw new Error(
-			'outFrame must be greater than 0, but is ' + validateOutFrame
+			`outFrame must be greater than 0, but is ${validatedOutFrame}. If you want to render a single frame, use <Thumbnail /> instead.`,
 		);
 	}
 
 	if (
-		validateOutFrame !== null &&
+		validatedOutFrame !== null &&
 		validatedInFrame !== null &&
-		validateOutFrame <= validatedInFrame
+		validatedOutFrame <= validatedInFrame
 	) {
 		throw new Error(
 			'outFrame must be greater than inFrame, but is ' +
-				validateOutFrame +
+				validatedOutFrame +
 				' <= ' +
-				validatedInFrame
+				validatedInFrame,
 		);
 	}
 };

@@ -1,12 +1,12 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import {VERSION} from 'remotion/version';
 
 type Environment = 'development' | 'production';
 
 type CacheState = 'exists' | 'other-exists' | 'does-not-exist';
 
 declare global {
-	// eslint-disable-next-line @typescript-eslint/no-namespace
 	namespace NodeJS {
 		interface ProcessVersions {
 			pnp?: string;
@@ -23,8 +23,7 @@ const getWebpackCacheDir = (remotionRoot: string) => {
 			if (fs.statSync(path.join(dir, 'package.json')).isFile()) {
 				break;
 			}
-			// eslint-disable-next-line no-empty
-		} catch (e) {}
+		} catch {}
 
 		const parent = path.dirname(dir);
 		if (dir === parent) {
@@ -50,38 +49,43 @@ const getWebpackCacheDir = (remotionRoot: string) => {
 	return path.resolve(dir, 'node_modules/.cache/webpack');
 };
 
-const remotionCacheLocation = (
-	remotionRoot: string,
-	environment: Environment,
-	hash: string
-) => {
-	return path.join(
-		getWebpackCacheDir(remotionRoot),
-		getWebpackCacheName(environment, hash)
-	);
-};
-
-export const clearCache = (remotionRoot: string) => {
-	return (fs.promises.rm ?? fs.promises.rmdir)(
-		getWebpackCacheDir(remotionRoot),
-		{
-			recursive: true,
-		}
-	);
-};
-
 const getPrefix = (environment: Environment) => {
-	return `remotion-v4-${environment}`;
+	return `remotion-${environment}-${VERSION}`;
+};
+
+export const getWebpackCacheEnvDir = (environment: Environment) => {
+	return getPrefix(environment);
 };
 
 export const getWebpackCacheName = (environment: Environment, hash: string) => {
-	if (environment === 'development') {
-		return `${getPrefix(environment)}-${hash}`;
-	}
+	return [getWebpackCacheEnvDir(environment), hash].join(path.sep);
+};
 
-	// In production, the cache is independent from input props because
-	// they are passed over URL params. Speed is mostly important in production.
-	return `${getPrefix(environment)}-${hash}`;
+const remotionCacheLocationForEnv = (
+	remotionRoot: string,
+	environment: Environment,
+) => {
+	return path.join(
+		getWebpackCacheDir(remotionRoot),
+		getWebpackCacheEnvDir(environment),
+	);
+};
+
+const remotionCacheLocation = (
+	remotionRoot: string,
+	environment: Environment,
+	hash: string,
+) => {
+	return path.join(
+		getWebpackCacheDir(remotionRoot),
+		getWebpackCacheName(environment, hash),
+	);
+};
+
+export const clearCache = (remotionRoot: string, env: Environment) => {
+	return fs.promises.rm(remotionCacheLocationForEnv(remotionRoot, env), {
+		recursive: true,
+	});
 };
 
 const hasOtherCache = ({
@@ -106,7 +110,7 @@ const hasOtherCache = ({
 export const cacheExists = (
 	remotionRoot: string,
 	environment: Environment,
-	hash: string
+	hash: string,
 ): CacheState => {
 	if (fs.existsSync(remotionCacheLocation(remotionRoot, environment, hash))) {
 		return 'exists';

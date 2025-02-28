@@ -1,0 +1,88 @@
+{
+	"repository": {
+		"url": "https://github.com/remotion-dev/remotion/tree/main/packages/media-parser"
+	},
+	"name": "@remotion/media-parser",
+	"version": "4.0.270",
+	"main": "dist/index.js",
+	"sideEffects": false,
+	"scripts": {
+		"formatting": "prettier src --check",
+		"lint": "eslint src",
+		"test": "bun test src/test",
+		"make": "tsc -d && bun --env-file=../.env.bundle bundle.ts",
+		"prepublishOnly": "bun ensure-correct-version.ts"
+	},
+	"devDependencies": {
+		"@remotion/example-videos": "workspace:*",
+		"@types/wicg-file-system-access": "2023.10.5",
+		"@remotion/eslint-config-internal": "workspace:*",
+		"eslint": "9.19.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"bugs": {
+		"url": "https://github.com/remotion-dev/remotion/issues"
+	},
+	"exports": {
+		"./package.json": "./package.json",
+		".": {
+			"types": "./dist/index.d.ts",
+			"require": "./dist/index.js",
+			"module": "./dist/esm/index.mjs",
+			"import": "./dist/esm/index.mjs"
+		},
+		"./web-file": {
+			"types": "./dist/web-file.d.ts",
+			"require": "./dist/web-file.js",
+			"module": "./dist/esm/web-file.mjs",
+			"import": "./dist/esm/web-file.mjs"
+		},
+		"./fetch": {
+			"types": "./dist/fetch.d.ts",
+			"require": "./dist/fetch.js",
+			"module": "./dist/esm/fetch.mjs",
+			"import": "./dist/esm/fetch.mjs"
+		},
+		"./node": {
+			"types": "./dist/node.d.ts",
+			"require": "./dist/node.js",
+			"module": "./dist/esm/node.mjs",
+			"import": "./dist/esm/node.mjs"
+		},
+		"./node-writer": {
+			"types": "./dist/node-writer.d.ts",
+			"require": "./dist/node-writer.js",
+			"module": "./dist/esm/node-writer.mjs",
+			"import": "./dist/esm/node-writer.mjs"
+		}
+	},
+	"typesVersions": {
+		">=1.0": {
+			"web-file": [
+				"dist/web-file.d.ts"
+			],
+			"fetch": [
+				"dist/fetch.d.ts"
+			],
+			"node": [
+				"dist/node.d.ts"
+			],
+			"node-writer": [
+				"dist/node-writer.d.ts"
+			]
+		}
+	},
+	"author": "Jonny Burger <jonny@remotion.dev>",
+	"license": "Remotion License https://remotion.dev/license",
+	"keywords": [
+		"remotion",
+		"ffmpeg",
+		"video",
+		"react",
+		"player"
+	],
+	"homepage": "https://www.remotion.dev/docs/media-parser",
+	"description": "A pure JavaScript library for parsing video files"
+}

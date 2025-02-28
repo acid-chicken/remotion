@@ -1,16 +1,16 @@
 import {Lottie, LottieAnimationData} from '@remotion/lottie';
 import React, {useEffect, useState} from 'react';
 import {
+	Sequence,
 	continueRender,
 	delayRender,
 	interpolate,
-	Sequence,
 	staticFile,
 	useCurrentFrame,
 	useVideoConfig,
 } from 'remotion';
-import './common.css';
 import HeaderAndCredits from './HeaderAndCredits';
+import './common.css';
 
 const Balloons = () => {
 	const frame = useCurrentFrame();
@@ -18,10 +18,15 @@ const Balloons = () => {
 	const opacity = interpolate(
 		frame,
 		[0, 5, durationInFrames - 20, durationInFrames],
-		[0, 1, 1, 0]
+		[0, 1, 1, 0],
 	);
 
+	const [error, setError] = useState<Error | null>(null);
 	const [handle] = useState(() => delayRender('Loading Lottie animation'));
+
+	if (error) {
+		throw error;
+	}
 
 	const [animationData, setAnimationData] =
 		useState<LottieAnimationData | null>(null);
@@ -35,6 +40,7 @@ const Balloons = () => {
 				continueRender(handle);
 			})
 			.catch((err) => {
+				setError(err);
 				console.log('Animation failed to load', err);
 			});
 	}, [handle]);
@@ -59,7 +65,7 @@ const LottieBalloons: React.FC = () => {
 
 	return (
 		<div className="container" style={{height, width}}>
-			<Sequence from={0}>
+			<Sequence>
 				<Balloons />
 			</Sequence>
 			<Sequence from={10}>

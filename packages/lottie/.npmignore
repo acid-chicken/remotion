@@ -3,6 +3,8 @@ src
 .eslintrc
 tsconfig.tsbuildinfo
 .prettierrc
-jest.config.js
 *.tgz
 .turbo
+dist/tsconfig.tsbuildinfo
+tsconfig.json
+.prettierrc.js

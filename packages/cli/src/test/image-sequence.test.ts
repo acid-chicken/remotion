@@ -1,4 +1,4 @@
-import {afterEach, beforeAll, expect, test} from 'vitest';
+import {afterEach, beforeAll, expect, test} from 'bun:test';
 import {
 	getShouldOutputImageSequence,
 	setImageSequence,
@@ -19,7 +19,7 @@ test('setImageSequence should throw if image sequence is not a boolean value', (
 		() =>
 			// @ts-expect-error
 			setImageSequence(invalidImageSequence),
-		/setImageSequence accepts a Boolean Value/
+		/setImageSequence accepts a Boolean Value/,
 	);
 });
 test('setImageSequence should NOT throw if image sequence is a boolean value', () => {

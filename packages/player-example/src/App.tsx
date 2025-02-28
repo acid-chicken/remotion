@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
 	CallbackListener,
 	ErrorFallback,
@@ -18,6 +19,7 @@ import React, {
 import {AbsoluteFill} from 'remotion';
 import {playerExampleComp} from './CarSlideshow';
 import {Loading} from './Loading';
+import {TimeDisplay} from './TimeDisplay';
 
 const fps = 30;
 
@@ -32,35 +34,63 @@ type CompProps<T> =
 	  };
 
 const ControlsOnly: React.FC<{
-	playerRef: React.RefObject<PlayerRef>;
-	color: string;
-	setColor: React.Dispatch<React.SetStateAction<string>>;
-	title: string;
-	setTitle: React.Dispatch<React.SetStateAction<string>>;
-	bgColor: string;
-	setBgColor: React.Dispatch<React.SetStateAction<string>>;
-	setPlaybackRate: React.Dispatch<React.SetStateAction<number>>;
-	loop: boolean;
-	setLoop: React.Dispatch<React.SetStateAction<boolean>>;
-	clickToPlay: boolean;
-	setClickToPlay: React.Dispatch<React.SetStateAction<boolean>>;
-	doubleClickToFullscreen: boolean;
-	setDoubleClickToFullscreen: React.Dispatch<React.SetStateAction<boolean>>;
-	spaceKeyToPlayOrPause: boolean;
-	setSpaceKeyToPlayOrPause: React.Dispatch<React.SetStateAction<boolean>>;
-	moveToBeginningWhenEnded: boolean;
-	setMoveToBeginningWhenEnded: React.Dispatch<React.SetStateAction<boolean>>;
-	showPosterWhenUnplayed: boolean;
-	setshowPosterWhenUnplayed: React.Dispatch<React.SetStateAction<boolean>>;
-	showPosterWhenEnded: boolean;
-	setShowPosterWhenEnded: React.Dispatch<React.SetStateAction<boolean>>;
-	showPosterWhenPaused: boolean;
-	setShowPosterWhenPaused: React.Dispatch<React.SetStateAction<boolean>>;
-	inFrame: number | null;
-	setInFrame: React.Dispatch<React.SetStateAction<number | null>>;
-	outFrame: number | null;
-	setOutFrame: React.Dispatch<React.SetStateAction<number | null>>;
-	durationInFrames: number;
+	readonly playerRef: React.RefObject<PlayerRef | null>;
+	readonly color: string;
+	readonly setColor: React.Dispatch<React.SetStateAction<string>>;
+	readonly title: string;
+	readonly setTitle: React.Dispatch<React.SetStateAction<string>>;
+	readonly bgColor: string;
+	readonly setBgColor: React.Dispatch<React.SetStateAction<string>>;
+	readonly setPlaybackRate: React.Dispatch<React.SetStateAction<number>>;
+	readonly loop: boolean;
+	readonly setLoop: React.Dispatch<React.SetStateAction<boolean>>;
+	readonly clickToPlay: boolean;
+	readonly setClickToPlay: React.Dispatch<React.SetStateAction<boolean>>;
+	readonly doubleClickToFullscreen: boolean;
+	readonly setDoubleClickToFullscreen: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly spaceKeyToPlayOrPause: boolean;
+	readonly setSpaceKeyToPlayOrPause: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly moveToBeginningWhenEnded: boolean;
+	readonly setMoveToBeginningWhenEnded: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly showPosterWhenUnplayed: boolean;
+	readonly setshowPosterWhenUnplayed: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly showPosterWhenEnded: boolean;
+	readonly setShowPosterWhenEnded: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly showPosterWhenPaused: boolean;
+	readonly setShowPosterWhenPaused: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly inFrame: number | null;
+	readonly setInFrame: React.Dispatch<React.SetStateAction<number | null>>;
+	readonly outFrame: number | null;
+	readonly setOutFrame: React.Dispatch<React.SetStateAction<number | null>>;
+	readonly alwaysShowControls: boolean;
+	readonly setAlwaysShowControls: React.Dispatch<React.SetStateAction<boolean>>;
+	readonly showVolumeControls: boolean;
+	readonly setShowVolumeControls: React.Dispatch<React.SetStateAction<boolean>>;
+	readonly durationInFrames: number;
+	readonly showPlaybackrateControl: boolean;
+	readonly setShowPlaybackRateControl: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly showPosterWhenBuffering: boolean;
+	readonly setShowPosterWhenBuffering: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
+	readonly hideControlsWhenPointerDoesntMove: boolean;
+	readonly setHideControlsWhenPointerDoesntMove: React.Dispatch<
+		React.SetStateAction<boolean>
+	>;
 }> = ({
 	playerRef: ref,
 	color,
@@ -86,11 +116,21 @@ const ControlsOnly: React.FC<{
 	showPosterWhenUnplayed,
 	showPosterWhenEnded,
 	showPosterWhenPaused,
+	setShowPosterWhenBuffering,
+	showPosterWhenBuffering,
 	inFrame,
 	outFrame,
 	setInFrame,
 	setOutFrame,
+	alwaysShowControls,
+	setAlwaysShowControls,
 	durationInFrames,
+	setShowVolumeControls,
+	showVolumeControls,
+	showPlaybackrateControl: showPlaybackControl,
+	setShowPlaybackRateControl: setShowPlaybackControl,
+	hideControlsWhenPointerDoesntMove,
+	setHideControlsWhenPointerDoesntMove,
 }) => {
 	const [logs, setLogs] = useState<string[]>(() => []);
 
@@ -118,7 +158,9 @@ const ControlsOnly: React.FC<{
 		const timeupdateCallbackListener: CallbackListener<'timeupdate'> = (e) => {
 			setLogs((l) => [...l, 'timeupdate ' + e.detail.frame]);
 		};
-		const frameupdateCallbackListener: CallbackListener<'frameupdate'> = (e) => {
+		const frameupdateCallbackListener: CallbackListener<'frameupdate'> = (
+			e,
+		) => {
 			setLogs((l) => [...l, 'frameupdate ' + e.detail.frame]);
 		};
 
@@ -128,6 +170,13 @@ const ControlsOnly: React.FC<{
 				'ratechange ' + e.detail.playbackRate + ' ' + Date.now(),
 			]);
 		};
+
+		const scalechangeCallbackListener: CallbackListener<'scalechange'> = (
+			e,
+		) => {
+			setLogs((l) => [...l, 'scalechange ' + e.detail.scale]);
+		};
+
 		const fullscreenChangeCallbackListener: CallbackListener<
 			'fullscreenchange'
 		> = (e) => {
@@ -135,6 +184,28 @@ const ControlsOnly: React.FC<{
 				...l,
 				'fullscreenchange ' + e.detail.isFullscreen + ' ' + Date.now(),
 			]);
+		};
+
+		const volumechangeCallbackListener: CallbackListener<'volumechange'> = (
+			e,
+		) => {
+			setLogs((l) => [
+				...l,
+				'volumechange ' + e.detail.volume + ' ' + Date.now(),
+			]);
+		};
+
+		const mutechangeCallbackListener: CallbackListener<'mutechange'> = (e) => {
+			setLogs((l) => [
+				...l,
+				'mutechange ' + e.detail.isMuted + ' ' + Date.now(),
+			]);
+		};
+		const waitingCallbackListener: CallbackListener<'waiting'> = () => {
+			setLogs((l) => [...l, 'waiting ' + Date.now()]);
+		};
+		const resumeCallbackListener: CallbackListener<'resume'> = () => {
+			setLogs((l) => [...l, 'resume ' + Date.now()]);
 		};
 
 		const {current} = ref;
@@ -150,10 +221,15 @@ const ControlsOnly: React.FC<{
 		current.addEventListener('timeupdate', timeupdateCallbackListener);
 		current.addEventListener('frameupdate', frameupdateCallbackListener);
 		current.addEventListener('ratechange', ratechangeCallbackListener);
+		current.addEventListener('scalechange', scalechangeCallbackListener);
+		current.addEventListener('volumechange', volumechangeCallbackListener);
+		current.addEventListener('mutechange', mutechangeCallbackListener);
 		current.addEventListener(
 			'fullscreenchange',
-			fullscreenChangeCallbackListener
+			fullscreenChangeCallbackListener,
 		);
+		current.addEventListener('waiting', waitingCallbackListener);
+		current.addEventListener('resume', resumeCallbackListener);
 
 		return () => {
 			current.removeEventListener('play', playCallbackListener);
@@ -164,10 +240,15 @@ const ControlsOnly: React.FC<{
 			current.removeEventListener('timeupdate', timeupdateCallbackListener);
 			current.removeEventListener('frameupdate', frameupdateCallbackListener);
 			current.removeEventListener('ratechange', ratechangeCallbackListener);
+			current.removeEventListener('scalechange', scalechangeCallbackListener);
+			current.removeEventListener('volumechange', volumechangeCallbackListener);
+			current.removeEventListener('mutechange', mutechangeCallbackListener);
 			current.removeEventListener(
 				'fullscreenchange',
-				fullscreenChangeCallbackListener
+				fullscreenChangeCallbackListener,
 			);
+			current.removeEventListener('waiting', waitingCallbackListener);
+			current.removeEventListener('resume', resumeCallbackListener);
 		};
 	}, [ref]);
 
@@ -181,6 +262,9 @@ const ControlsOnly: React.FC<{
 						setTitle(e.target.value);
 					}}
 				/>
+			</div>
+			<div>
+				<TimeDisplay playerRef={ref} />
 			</div>
 			<div style={{paddingTop: '0.5rem'}}>
 				<div>
@@ -210,8 +294,14 @@ const ControlsOnly: React.FC<{
 			<button type="button" onClick={() => ref.current?.toggle()}>
 				⏯️ Toggle
 			</button>
-			<button type="button" onClick={() => ref.current?.seekTo(10)}>
-				seekTo 10
+			<button
+				type="button"
+				onClick={() => {
+					ref.current?.seekTo(10);
+					ref.current?.pause();
+				}}
+			>
+				seekTo 10 and pause
 			</button>
 			<button type="button" onClick={() => ref.current?.seekTo(50)}>
 				seekTo 50
@@ -283,6 +373,14 @@ const ControlsOnly: React.FC<{
 			>
 				-1x speed
 			</button>
+			<button
+				type="button"
+				onClick={() => {
+					setShowPlaybackControl(!showPlaybackControl);
+				}}
+			>
+				showPlaybackRateControl = {String(showPlaybackControl)}
+			</button>
 			<br />
 			<button type="button" onClick={() => ref.current?.mute()}>
 				🔇 Mute
@@ -328,6 +426,12 @@ const ControlsOnly: React.FC<{
 			<button type="button" onClick={() => setShowPosterWhenPaused((l) => !l)}>
 				showPosterWhenPaused = {String(showPosterWhenPaused)}
 			</button>
+			<button
+				type="button"
+				onClick={() => setShowPosterWhenBuffering((l) => !l)}
+			>
+				showPosterWhenBuffering = {String(showPosterWhenBuffering)}
+			</button>
 			<br />
 			<button
 				type="button"
@@ -335,6 +439,20 @@ const ControlsOnly: React.FC<{
 			>
 				moveToBeginningWhenEnded = {String(moveToBeginningWhenEnded)}
 			</button>
+			<button type="button" onClick={() => setShowVolumeControls((l) => !l)}>
+				showVolumeControls = {String(showVolumeControls)}
+			</button>
+			<button type="button" onClick={() => setAlwaysShowControls((l) => !l)}>
+				alwaysShowControls = {String(alwaysShowControls)}
+			</button>
+			<button
+				type="button"
+				onClick={() => setHideControlsWhenPointerDoesntMove((l) => !l)}
+			>
+				hideControlsWhenPointerDoesntMove ={' '}
+				{String(hideControlsWhenPointerDoesntMove)}
+			</button>
+			<br />
 			<button
 				type="button"
 				onClick={() =>
@@ -419,8 +537,8 @@ const ControlsOnly: React.FC<{
 				.reverse()
 				.slice(0, 10)
 				.reverse()
-				.map((l) => {
-					return <div key={l}>{l}</div>;
+				.map((l, i) => {
+					return <div key={`${l}-${i}`}>{l}</div>;
 				})}
 		</div>
 	);
@@ -428,20 +546,25 @@ const ControlsOnly: React.FC<{
 
 const PlayerOnly: React.FC<
 	{
-		playerRef: React.RefObject<PlayerRef>;
-		inputProps: object;
-		clickToPlay: boolean;
-		loop: boolean;
-		durationInFrames: number;
-		doubleClickToFullscreen: boolean;
-		playbackRate: number;
-		spaceKeyToPlayOrPause: boolean;
-		moveToBeginningWhenEnded: boolean;
-		showPosterWhenPaused: boolean;
-		showPosterWhenEnded: boolean;
-		showPosterWhenUnplayed: boolean;
-		inFrame: number | null;
-		outFrame: number | null;
+		readonly playerRef: React.RefObject<PlayerRef | null>;
+		readonly inputProps: Record<string, unknown>;
+		readonly clickToPlay: boolean;
+		readonly loop: boolean;
+		readonly durationInFrames: number;
+		readonly doubleClickToFullscreen: boolean;
+		readonly playbackRate: number;
+		readonly spaceKeyToPlayOrPause: boolean;
+		readonly moveToBeginningWhenEnded: boolean;
+		readonly showPosterWhenPaused: boolean;
+		readonly showPosterWhenEnded: boolean;
+		readonly showPosterWhenUnplayed: boolean;
+		readonly showPosterWhenBuffering: boolean;
+		readonly inFrame: number | null;
+		readonly outFrame: number | null;
+		readonly alwaysShowControls: boolean;
+		readonly showVolumeControls: boolean;
+		readonly showPlaybackRateControl: boolean | number[];
+		readonly hideControlsWhenPointerDoesntMove: boolean;
 	} & CompProps<any>
 > = ({
 	playerRef,
@@ -456,8 +579,13 @@ const PlayerOnly: React.FC<
 	showPosterWhenPaused,
 	showPosterWhenEnded,
 	showPosterWhenUnplayed,
+	showPosterWhenBuffering,
 	inFrame,
 	outFrame,
+	alwaysShowControls,
+	showVolumeControls,
+	showPlaybackRateControl,
+	hideControlsWhenPointerDoesntMove,
 	...props
 }) => {
 	const renderLoading: RenderLoading = useCallback(() => {
@@ -468,7 +596,19 @@ const PlayerOnly: React.FC<
 			</AbsoluteFill>
 		);
 	}, []);
-	const renderPoster: RenderPoster = useCallback(() => {
+	const renderPoster: RenderPoster = useCallback(({isBuffering}) => {
+		if (isBuffering) {
+			return (
+				<AbsoluteFill
+					style={{
+						justifyContent: 'center',
+						alignItems: 'center',
+					}}
+				>
+					Buffering
+				</AbsoluteFill>
+			);
+		}
 		return (
 			<AbsoluteFill style={{backgroundColor: 'yellow'}}>
 				<div>Click to play</div>
@@ -494,9 +634,10 @@ const PlayerOnly: React.FC<
 		<Player
 			ref={playerRef}
 			controls
-			showVolumeControls
-			compositionWidth={500}
-			compositionHeight={432}
+			acknowledgeRemotionLicense
+			showVolumeControls={showVolumeControls}
+			compositionWidth={1920}
+			compositionHeight={1080}
 			fps={fps}
 			{...props}
 			durationInFrames={durationInFrames}
@@ -514,8 +655,22 @@ const PlayerOnly: React.FC<
 			showPosterWhenUnplayed={showPosterWhenUnplayed}
 			showPosterWhenEnded={showPosterWhenEnded}
 			showPosterWhenPaused={showPosterWhenPaused}
+			showPosterWhenBuffering={showPosterWhenBuffering}
 			inFrame={inFrame}
 			outFrame={outFrame}
+			alwaysShowControls={alwaysShowControls}
+			showPlaybackRateControl={showPlaybackRateControl}
+			hideControlsWhenPointerDoesntMove={hideControlsWhenPointerDoesntMove}
+			style={{
+				height: '100%',
+				width: '100%',
+				resize: 'both',
+				maxWidth: 550,
+				maxHeight: 550,
+				minWidth: 300,
+				minHeight: 300,
+				display: 'block',
+			}}
 		/>
 	);
 };
@@ -524,7 +679,7 @@ export default ({
 	durationInFrames,
 	...props
 }: {
-	durationInFrames: number;
+	readonly durationInFrames: number;
 } & CompProps<any>) => {
 	const [title, setTitle] = useState('Hello World');
 	const [color, setColor] = useState('#ffffff');
@@ -537,10 +692,18 @@ export default ({
 		useState(true);
 	const [playbackRate, setPlaybackRate] = useState(1);
 	const [showPosterWhenUnplayed, setshowPosterWhenUnplayed] = useState(true);
+	const [showPosterWhenBuffering, setShowPosterWhenBuffering] = useState(true);
 	const [showPosterWhenEnded, setShowPosterWhenEnded] = useState(true);
 	const [showPosterWhenPaused, setShowPosterWhenPaused] = useState(true);
 	const [inFrame, setInFrame] = useState<number | null>(null);
 	const [outFrame, setOutFrame] = useState<number | null>(null);
+	const [alwaysShowControls, setAlwaysShowControls] = useState(false);
+	const [showVolumeControls, setShowVolumeControls] = useState(true);
+	const [showPlaybackRateControl, setPlaybackRateControl] = useState(false);
+	const [
+		hideControlsWhenPointerDoesntMove,
+		setHideControlsWhenPointerDoesntMove,
+	] = useState(true);
 
 	const ref = useRef<PlayerRef>(null);
 
@@ -555,6 +718,8 @@ export default ({
 	return (
 		<div style={{margin: '2rem'}}>
 			<PlayerOnly
+				hideControlsWhenPointerDoesntMove={hideControlsWhenPointerDoesntMove}
+				alwaysShowControls={alwaysShowControls}
 				clickToPlay={clickToPlay}
 				{...props}
 				doubleClickToFullscreen={doubleClickToFullscreen}
@@ -568,6 +733,9 @@ export default ({
 				showPosterWhenEnded={showPosterWhenEnded}
 				showPosterWhenPaused={showPosterWhenPaused}
 				showPosterWhenUnplayed={showPosterWhenUnplayed}
+				showPosterWhenBuffering={showPosterWhenBuffering}
+				showVolumeControls={showVolumeControls}
+				showPlaybackRateControl={showPlaybackRateControl}
 				inFrame={inFrame}
 				outFrame={outFrame}
 			/>
@@ -593,14 +761,26 @@ export default ({
 				setshowPosterWhenUnplayed={setshowPosterWhenUnplayed}
 				setShowPosterWhenEnded={setShowPosterWhenEnded}
 				setShowPosterWhenPaused={setShowPosterWhenPaused}
+				showPosterWhenBuffering={showPosterWhenBuffering}
+				setShowPosterWhenBuffering={setShowPosterWhenBuffering}
+				setAlwaysShowControls={setAlwaysShowControls}
 				showPosterWhenUnplayed={showPosterWhenUnplayed}
 				showPosterWhenEnded={showPosterWhenEnded}
 				showPosterWhenPaused={showPosterWhenPaused}
+				alwaysShowControls={alwaysShowControls}
+				setShowVolumeControls={setShowVolumeControls}
+				showVolumeControls={showVolumeControls}
 				setInFrame={setInFrame}
 				setOutFrame={setOutFrame}
 				inFrame={inFrame}
 				outFrame={outFrame}
 				durationInFrames={durationInFrames}
+				showPlaybackrateControl={showPlaybackRateControl}
+				setShowPlaybackRateControl={setPlaybackRateControl}
+				hideControlsWhenPointerDoesntMove={hideControlsWhenPointerDoesntMove}
+				setHideControlsWhenPointerDoesntMove={
+					setHideControlsWhenPointerDoesntMove
+				}
 			/>
 		</div>
 	);

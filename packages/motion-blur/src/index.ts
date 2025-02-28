@@ -1,1 +1,2 @@
-export {MotionBlur, MotionBlurProps} from './MotionBlur';
+export {CameraMotionBlur, CameraMotionBlurProps} from './CameraMotionBlur';
+export {Trail, TrailProps} from './Trail';

@@ -1,76 +1,105 @@
-import {RenderInternals} from '@remotion/renderer';
-import path from 'path';
-import {ConfigInternals} from './config';
-import {getLatestRemotionVersion} from './get-latest-remotion-version';
+import {RenderInternals, type LogLevel} from '@remotion/renderer';
+import {StudioServerInternals} from '@remotion/studio-server';
+import {spawn} from 'node:child_process';
+import {chalk} from './chalk';
 import {listOfRemotionPackages} from './list-of-remotion-packages';
 import {Log} from './log';
-import type {PackageManager} from './preview-server/get-package-manager';
-import {
-	getPackageManager,
-	lockFilePaths,
-} from './preview-server/get-package-manager';
 
-const getUpgradeCommand = ({
-	manager,
-	packages,
+export const upgradeCommand = async ({
+	remotionRoot,
+	packageManager,
 	version,
+	logLevel,
+	args,
 }: {
-	manager: PackageManager;
-	packages: string[];
-	version: string;
-}): string[] => {
-	const pkgList = packages.map((p) => `${p}@${version}`);
+	remotionRoot: string;
+	packageManager: string | undefined;
+	version: string | undefined;
+	logLevel: LogLevel;
+	args: string[];
+}) => {
+	const {
+		dependencies,
+		devDependencies,
+		optionalDependencies,
+		peerDependencies,
+	} = StudioServerInternals.getInstalledDependencies(remotionRoot);
 
-	const commands: {[key in PackageManager]: string[]} = {
-		npm: ['i', '--save-exact', ...pkgList],
-		pnpm: ['i', '--save-exact', ...pkgList],
-		yarn: ['add', '--exact', ...pkgList],
-	};
-
-	return commands[manager];
-};
-
-export const upgrade = async (remotionRoot: string) => {
-	const packageJsonFilePath = path.join(remotionRoot, 'package.json');
-
-	const packageJson = require(packageJsonFilePath);
-	const dependencies = Object.keys(packageJson.dependencies);
-	const latestRemotionVersion = await getLatestRemotionVersion();
-
-	const manager = getPackageManager(remotionRoot);
-
-	if (manager === 'unknown') {
-		throw new Error(
-			`No lockfile was found in your project (one of ${lockFilePaths
-				.map((p) => p.path)
-				.join(', ')}). Install dependencies using your favorite manager!`
+	let targetVersion: string;
+	if (version) {
+		targetVersion = version;
+		Log.info(
+			{indent: false, logLevel},
+			'Upgrading to specified version: ' + version,
+		);
+	} else {
+		targetVersion = await StudioServerInternals.getLatestRemotionVersion();
+		Log.info(
+			{indent: false, logLevel},
+			'Newest Remotion version is',
+			targetVersion,
 		);
 	}
 
-	const toUpgrade = listOfRemotionPackages.filter((u) =>
-		dependencies.includes(u)
+	const manager = StudioServerInternals.getPackageManager(
+		remotionRoot,
+		packageManager,
+		0,
 	);
 
-	const prom = RenderInternals.execa(
-		manager.manager,
-		getUpgradeCommand({
-			manager: manager.manager,
-			packages: toUpgrade,
-			version: latestRemotionVersion,
-		}),
-		{
-			stdio: 'inherit',
-		}
-	);
-	if (
-		RenderInternals.isEqualOrBelowLogLevel(
-			ConfigInternals.Logging.getLogLevel(),
-			'info'
-		)
-	) {
-		prom.stdout?.pipe(process.stdout);
+	if (manager === 'unknown') {
+		throw new Error(
+			`No lockfile was found in your project (one of ${StudioServerInternals.lockFilePaths
+				.map((p) => p.path)
+				.join(', ')}). Install dependencies using your favorite manager!`,
+		);
 	}
 
-	await prom;
-	Log.info('⏫ Remotion has been upgraded!');
+	const toUpgrade = listOfRemotionPackages.filter(
+		(u) =>
+			dependencies.includes(u) ||
+			devDependencies.includes(u) ||
+			optionalDependencies.includes(u) ||
+			peerDependencies.includes(u),
+	);
+
+	const command = StudioServerInternals.getInstallCommand({
+		manager: manager.manager,
+		packages: toUpgrade,
+		version: targetVersion,
+		additionalArgs: args,
+	});
+
+	Log.info(
+		{indent: false, logLevel},
+		chalk.gray(`$ ${manager.manager} ${command.join(' ')}`),
+	);
+
+	const task = spawn(manager.manager, command, {
+		env: {
+			...process.env,
+			ADBLOCK: '1',
+			DISABLE_OPENCOLLECTIVE: '1',
+		},
+		stdio: RenderInternals.isEqualOrBelowLogLevel(logLevel, 'info')
+			? 'inherit'
+			: 'ignore',
+	});
+
+	await new Promise<void>((resolve) => {
+		task.on('close', (code) => {
+			if (code === 0) {
+				resolve();
+			} else if (RenderInternals.isEqualOrBelowLogLevel(logLevel, 'info')) {
+				throw new Error('Failed to upgrade Remotion, see logs above');
+			} else {
+				throw new Error(
+					'Failed to upgrade Remotion, run with --log=info info to see logs',
+				);
+			}
+		});
+	});
+
+	Log.info({indent: false, logLevel}, '⏫ Remotion has been upgraded!');
+	Log.info({indent: false, logLevel}, 'https://remotion.dev/changelog');
 };

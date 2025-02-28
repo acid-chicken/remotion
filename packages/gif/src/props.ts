@@ -1,3 +1,8 @@
+export type GifLoopBehavior =
+	| 'loop'
+	| 'pause-after-finish'
+	| 'unmount-after-finish';
+
 export type RemotionGifProps = {
 	src: string;
 	width?: number;
@@ -10,7 +15,10 @@ export type RemotionGifProps = {
 	}) => void;
 	onError?: (error: Error) => void;
 	fit?: GifFillMode;
+	playbackRate?: number;
 	style?: React.CSSProperties;
+	loopBehavior?: GifLoopBehavior;
+	id?: string;
 };
 
 export type GifState = {

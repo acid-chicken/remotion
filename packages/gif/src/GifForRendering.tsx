@@ -1,17 +1,31 @@
 import {forwardRef, useEffect, useRef, useState} from 'react';
-import {continueRender, delayRender} from 'remotion';
+import {continueRender, delayRender, Internals} from 'remotion';
 import {Canvas} from './canvas';
-import {gifCache} from './gif-cache';
+import {volatileGifCache} from './gif-cache';
 import {isCorsError} from './is-cors-error';
 import type {GifState, RemotionGifProps} from './props';
 import {parseGif} from './react-tools';
+import {resolveGifSource} from './resolve-gif-source';
 import {useCurrentGifIndex} from './useCurrentGifIndex';
 
 export const GifForRendering = forwardRef<HTMLCanvasElement, RemotionGifProps>(
-	({src, width, height, onLoad, onError, fit = 'fill', ...props}, ref) => {
-		const resolvedSrc = new URL(src, window.location.origin).href;
+	(
+		{
+			src,
+			width,
+			height,
+			onLoad,
+			onError,
+			loopBehavior = 'loop',
+			playbackRate = 1,
+			fit = 'fill',
+			...props
+		},
+		ref,
+	) => {
+		const resolvedSrc = resolveGifSource(src);
 		const [state, update] = useState<GifState>(() => {
-			const parsedGif = gifCache.get(resolvedSrc);
+			const parsedGif = volatileGifCache.get(resolvedSrc);
 
 			if (parsedGif === undefined) {
 				return {
@@ -26,11 +40,23 @@ export const GifForRendering = forwardRef<HTMLCanvasElement, RemotionGifProps>(
 		});
 		const [error, setError] = useState<Error | null>(null);
 
-		const [id] = useState(() =>
-			delayRender(`Rendering <Gif/> with src="${resolvedSrc}"`)
+		const [renderHandle] = useState(() =>
+			delayRender(`Rendering <Gif/> with src="${resolvedSrc}"`),
 		);
 
-		const index = useCurrentGifIndex(state.delays);
+		const logLevel = Internals.useLogLevel();
+
+		useEffect(() => {
+			return () => {
+				continueRender(renderHandle);
+			};
+		}, [renderHandle]);
+
+		const index = useCurrentGifIndex({
+			delays: state.delays,
+			loopBehavior,
+			playbackRate,
+		});
 		const currentOnLoad = useRef(onLoad);
 		const currentOnError = useRef(onError);
 		currentOnLoad.current = onLoad;
@@ -42,20 +68,30 @@ export const GifForRendering = forwardRef<HTMLCanvasElement, RemotionGifProps>(
 			let aborted = false;
 			const newHandle = delayRender('Loading <Gif /> with src=' + resolvedSrc);
 
+			Internals.Log.verbose(logLevel, 'Loading GIF with source', resolvedSrc);
+			const time = Date.now();
 			parseGif({controller, src: resolvedSrc})
 				.then((parsed) => {
+					Internals.Log.verbose(
+						logLevel,
+						'Parsed GIF in',
+						Date.now() - time,
+						'ms',
+					);
 					currentOnLoad.current?.(parsed);
 					update(parsed);
-					gifCache.set(resolvedSrc, parsed);
+					volatileGifCache.set(resolvedSrc, parsed);
 					done = true;
 					continueRender(newHandle);
-					continueRender(id);
+					continueRender(renderHandle);
 				})
 				.catch((err) => {
 					if (aborted) {
 						continueRender(newHandle);
 						return;
 					}
+
+					Internals.Log.error('Failed to load GIF', err);
 
 					if (currentOnError.current) {
 						currentOnError.current(err);
@@ -71,20 +107,25 @@ export const GifForRendering = forwardRef<HTMLCanvasElement, RemotionGifProps>(
 				}
 
 				continueRender(newHandle);
+				continueRender(renderHandle);
 			};
-		}, [id, resolvedSrc]);
+		}, [renderHandle, logLevel, resolvedSrc]);
 
 		if (error) {
-			console.error(error.stack);
+			Internals.Log.error(error.stack);
 			if (isCorsError(error)) {
 				throw new Error(
-					`Failed to render GIF with source ${src}: "${error.message}". You must enable CORS for this URL.`
+					`Failed to render GIF with source ${src}: "${error.message}". You must enable CORS for this URL.`,
 				);
 			}
 
 			throw new Error(
-				`Failed to render GIF with source ${src}: "${error.message}". Render with --log=verbose to see the full stack.`
+				`Failed to render GIF with source ${src}: "${error.message}". Render with --log=verbose to see the full stack.`,
 			);
+		}
+
+		if (index === -1) {
+			return null;
 		}
 
 		return (
@@ -98,5 +139,5 @@ export const GifForRendering = forwardRef<HTMLCanvasElement, RemotionGifProps>(
 				ref={ref}
 			/>
 		);
-	}
+	},
 );

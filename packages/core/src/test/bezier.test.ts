@@ -1,5 +1,5 @@
-import {expect, test} from 'vitest';
-import {bezier} from '../bezier';
+import {expect, test} from 'bun:test';
+import {bezier} from '../bezier.js';
 
 const identity = (x: number) => {
 	return x;
@@ -12,7 +12,7 @@ const assertClose = (a: number, b: number, precision = 3) => {
 const allEquals = (
 	be1: (x: number) => number,
 	be2: (x: number) => number,
-	samples: number
+	samples: number,
 ) => {
 	for (let i = 0; i <= samples; ++i) {
 		const x = i / samples;

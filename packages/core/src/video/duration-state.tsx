@@ -1,4 +1,5 @@
 import React, {createContext, useMemo, useReducer} from 'react';
+import {getAbsoluteSrc} from '../absolute-src.js';
 type DurationState = Record<string, number>;
 
 type DurationAction = {
@@ -9,14 +10,21 @@ type DurationAction = {
 
 export const durationReducer = (
 	state: DurationState,
-	action: DurationAction
+	action: DurationAction,
 ) => {
 	switch (action.type) {
-		case 'got-duration':
+		case 'got-duration': {
+			const absoluteSrc = getAbsoluteSrc(action.src);
+			if (state[absoluteSrc] === action.durationInSeconds) {
+				return state;
+			}
+
 			return {
 				...state,
-				[action.src]: action.durationInSeconds,
+				[absoluteSrc]: action.durationInSeconds,
 			};
+		}
+
 		default:
 			return state;
 	}
@@ -35,7 +43,7 @@ export const DurationsContext = createContext<TDurationsContext>({
 });
 
 export const DurationsContextProvider: React.FC<{
-	children: React.ReactNode;
+	readonly children: React.ReactNode;
 }> = ({children}) => {
 	const [durations, setDurations] = useReducer(durationReducer, {});
 

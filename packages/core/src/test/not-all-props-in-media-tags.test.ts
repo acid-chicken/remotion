@@ -1,52 +1,56 @@
-import fs from 'fs';
-import path from 'path';
-import {expect, test} from 'vitest';
+import {expect, test} from 'bun:test';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Test for https://github.com/remotion-dev/remotion/issues/1243
-test('Should not have disableRemotePlayback props in the <VideoForDevelopment> component type definition', () => {
+test('Should not have disableRemotePlayback props in the <VideoForPreview> component type definition', () => {
 	const file = path.resolve(
 		process.cwd(),
 		'dist',
+		'cjs',
 		'video',
-		'VideoForDevelopment.d.ts'
+		'VideoForPreview.d.ts',
 	);
 	const read = fs.readFileSync(file, 'utf-8');
 	expect(read).not.toContain('disableRemotePlayback');
-	expect(read).toContain('volume-prop');
+	expect(read).toContain('./props');
 });
 
-test('Should not have disableRemotePlayback props in the <VideoForRendering> component type definition', () => {
+test('Should not have disableRemotePlayback props in the <VideoForPreview> component type definition', () => {
 	const file = path.resolve(
 		process.cwd(),
 		'dist',
+		'cjs',
 		'video',
-		'VideoForRendering.d.ts'
+		'VideoForPreview.d.ts',
 	);
 	const read = fs.readFileSync(file, 'utf-8');
 	expect(read).not.toContain('disableRemotePlayback');
-	expect(read).toContain('volume-prop');
+	expect(read).toContain('./props');
 });
 
-test('Should not have disableRemotePlayback props in the <AudioForDevelopment> component type definition', () => {
+test('Should not have disableRemotePlayback props in the <AudioForPreview> component type definition', () => {
 	const file = path.resolve(
 		process.cwd(),
 		'dist',
+		'cjs',
 		'audio',
-		'AudioForDevelopment.d.ts'
+		'AudioForPreview.d.ts',
 	);
 	const read = fs.readFileSync(file, 'utf-8');
 	expect(read).not.toContain('aria-disabled');
-	expect(read).toContain('volume-prop');
+	expect(read).toContain('./props');
 });
 
 test('Should not have disableRemotePlayback props in the <AudioForRendering> component type definition', () => {
 	const file = path.resolve(
 		process.cwd(),
 		'dist',
+		'cjs',
 		'audio',
-		'AudioForRendering.d.ts'
+		'AudioForRendering.d.ts',
 	);
 	const read = fs.readFileSync(file, 'utf-8');
 	expect(read).not.toContain('aria-disabled');
-	expect(read).toContain('volume-prop');
+	expect(read).toContain('./props');
 });

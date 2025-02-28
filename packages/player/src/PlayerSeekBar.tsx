@@ -1,20 +1,20 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Internals, interpolate} from 'remotion';
-import {useHoverState} from './use-hover-state';
-import {usePlayer} from './use-player';
-import {useElementSize} from './utils/use-element-size';
+import {useHoverState} from './use-hover-state.js';
+import {usePlayer} from './use-player.js';
+import {useElementSize} from './utils/use-element-size.js';
 
 const getFrameFromX = (
 	clientX: number,
 	durationInFrames: number,
-	width: number
+	width: number,
 ) => {
 	const pos = clientX;
 	const frame = Math.round(
-		interpolate(pos, [0, width], [0, durationInFrames - 1 ?? 0], {
+		interpolate(pos, [0, width], [0, durationInFrames - 1], {
 			extrapolateLeft: 'clamp',
 			extrapolateRight: 'clamp',
-		})
+		}),
 	);
 	return frame;
 };
@@ -25,6 +25,7 @@ const VERTICAL_PADDING = 4;
 
 const containerStyle: React.CSSProperties = {
 	userSelect: 'none',
+	WebkitUserSelect: 'none',
 	paddingTop: VERTICAL_PADDING,
 	paddingBottom: VERTICAL_PADDING,
 	boxSizing: 'border-box',
@@ -58,7 +59,7 @@ export const PlayerSeekBar: React.FC<{
 	outFrame: number | null;
 }> = ({durationInFrames, onSeekEnd, onSeekStart, inFrame, outFrame}) => {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const barHovered = useHoverState(containerRef);
+	const barHovered = useHoverState(containerRef, false);
 	const size = useElementSize(containerRef, {
 		triggerOnWindowResize: true,
 		shouldApplyCssTransforms: true,
@@ -78,16 +79,21 @@ export const PlayerSeekBar: React.FC<{
 		dragging: false,
 	});
 
+	const width = size?.width ?? 0;
+
 	const onPointerDown = useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {
-			if (!size) {
-				throw new Error('Player has no size');
+			if (e.button !== 0) {
+				return;
 			}
 
+			const posLeft = containerRef.current?.getBoundingClientRect()
+				.left as number;
+
 			const _frame = getFrameFromX(
-				e.clientX - size.left,
+				e.clientX - posLeft,
 				durationInFrames,
-				size.width
+				width,
 			);
 			pause();
 			seek(_frame);
@@ -97,7 +103,7 @@ export const PlayerSeekBar: React.FC<{
 			});
 			onSeekStart();
 		},
-		[size, durationInFrames, pause, seek, playing, onSeekStart]
+		[durationInFrames, width, pause, seek, playing, onSeekStart],
 	);
 
 	const onPointerMove = useCallback(
@@ -110,14 +116,17 @@ export const PlayerSeekBar: React.FC<{
 				return;
 			}
 
+			const posLeft = containerRef.current?.getBoundingClientRect()
+				.left as number;
+
 			const _frame = getFrameFromX(
-				e.clientX - (size?.left ?? 0),
+				e.clientX - posLeft,
 				durationInFrames,
-				size.width
+				size.width,
 			);
 			seek(_frame);
 		},
-		[dragging.dragging, durationInFrames, seek, size]
+		[dragging.dragging, durationInFrames, seek, size],
 	);
 
 	const onPointerUp = useCallback(() => {
@@ -143,7 +152,7 @@ export const PlayerSeekBar: React.FC<{
 		}
 
 		const body = findBodyInWhichDivIsLocated(
-			containerRef.current as HTMLElement
+			containerRef.current as HTMLElement,
 		);
 
 		body.addEventListener('pointermove', onPointerMove);
@@ -164,23 +173,22 @@ export const PlayerSeekBar: React.FC<{
 			backgroundColor: 'white',
 			left: Math.max(
 				0,
-				(frame / Math.max(1, durationInFrames - 1)) * (size?.width ?? 0) -
-					KNOB_SIZE / 2
+				(frame / Math.max(1, durationInFrames - 1)) * width - KNOB_SIZE / 2,
 			),
 			boxShadow: '0 0 2px black',
-			opacity: Number(barHovered),
+			opacity: Number(barHovered || dragging.dragging),
 		};
-	}, [barHovered, durationInFrames, frame, size]);
+	}, [barHovered, dragging.dragging, durationInFrames, frame, width]);
 
 	const fillStyle: React.CSSProperties = useMemo(() => {
 		return {
 			height: BAR_HEIGHT,
 			backgroundColor: 'rgba(255, 255, 255, 1)',
-			width: ((frame - (inFrame ?? 0)) / (durationInFrames - 1)) * 100 + '%',
-			marginLeft: ((inFrame ?? 0) / (durationInFrames - 1)) * 100 + '%',
+			width: ((frame - (inFrame ?? 0)) / (durationInFrames - 1)) * width,
+			marginLeft: ((inFrame ?? 0) / (durationInFrames - 1)) * width,
 			borderRadius: BAR_HEIGHT / 2,
 		};
-	}, [durationInFrames, frame, inFrame]);
+	}, [durationInFrames, frame, inFrame, width]);
 
 	const active: React.CSSProperties = useMemo(() => {
 		return {

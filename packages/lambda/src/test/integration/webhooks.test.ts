@@ -1,64 +1,44 @@
-import {RenderInternals} from '@remotion/renderer';
+import {RenderInternals, ensureBrowser} from '@remotion/renderer';
+import {ServerlessRoutines} from '@remotion/serverless';
+import {beforeAll, expect, test} from 'bun:test';
+import path from 'path';
 import {VERSION} from 'remotion/version';
-import {LambdaRoutines} from '../../defaults';
-import {handler} from '../../functions';
-import {mockableHttpClients} from '../../shared/invoke-webhook';
-import type {LambdaReturnValues} from '../../shared/return-values';
-import {disableLogs, enableLogs} from '../disable-logs';
+import {getWebhookCalls, resetWebhookCalls} from '../mock-implementation';
+import {mockImplementation} from '../mocks/mock-implementation';
+import {waitUntilDone} from './wait-until-done';
 
-jest.setTimeout(90000);
-
-const extraContext = {
-	invokedFunctionArn: 'arn:fake',
-	getRemainingTimeInMillis: () => 12000,
-};
-
-type Await<T> = T extends PromiseLike<infer U> ? U : T;
-
-const originalFetch = mockableHttpClients.http;
-beforeEach(() => {
-	// @ts-expect-error
-	mockableHttpClients.http = jest.fn(
-		(
-			_url: string,
-			_options: unknown,
-			cb: (a: {statusCode: number}) => void
-		) => {
-			cb({
-				statusCode: 201,
-			});
-			return {
-				on: () => undefined,
-				end: () => undefined,
-			};
-		}
-	);
-});
-
-afterEach(() => {
-	mockableHttpClients.http = originalFetch;
-});
-
-beforeAll(() => {
-	disableLogs();
-});
-
-afterAll(async () => {
-	enableLogs();
-
-	await RenderInternals.killAllBrowsers();
+beforeAll(async () => {
+	await ensureBrowser();
 });
 
 const TEST_URL = 'http://localhost:8000';
+const exampleBuild = path.join(process.cwd(), '..', 'example', 'build');
 
-describe('Webhooks', () => {
-	test('Should call webhook upon completion', async () => {
+test(
+	'Should call webhook upon completion',
+	async () => {
 		process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE = '2048';
+		process.env.AWS_LAMBDA_FUNCTION_NAME = 'remotion-dev-lambda';
 
-		const res = await handler(
-			{
-				type: LambdaRoutines.start,
-				serveUrl: 'https://gleaming-wisp-de5d2a.netlify.app/',
+		resetWebhookCalls();
+
+		const {port, close} = await RenderInternals.serveStatic(exampleBuild, {
+			binariesDirectory: null,
+			offthreadVideoThreads: 1,
+			downloadMap: RenderInternals.makeDownloadMap(),
+			indent: false,
+			logLevel: 'error',
+			offthreadVideoCacheSizeInBytes: null,
+			port: null,
+			remotionRoot: path.dirname(exampleBuild),
+			forceIPv4: false,
+		});
+
+		const res = await mockImplementation.callFunctionSync({
+			type: ServerlessRoutines.start,
+			payload: {
+				type: ServerlessRoutines.start,
+				serveUrl: `http://localhost:${port}`,
 				chromiumOptions: {},
 				codec: 'h264',
 				composition: 'react-svg',
@@ -67,16 +47,20 @@ describe('Webhooks', () => {
 				frameRange: [0, 2],
 				framesPerLambda: 8,
 				imageFormat: 'png',
-				inputProps: {},
+				inputProps: {
+					type: 'payload',
+					payload: '{}',
+				},
 				logLevel: 'warn',
 				maxRetries: 3,
 				outName: 'out.mp4',
 				pixelFormat: 'yuv420p',
 				privacy: 'public',
 				proResProfile: undefined,
-				quality: undefined,
+				x264Preset: null,
+				jpegQuality: undefined,
 				scale: 1,
-				timeoutInMilliseconds: 16000,
+				timeoutInMilliseconds: 40000,
 				numberOfGifLoops: null,
 				everyNthFrame: 1,
 				concurrencyPerLambda: 1,
@@ -89,105 +73,165 @@ describe('Webhooks', () => {
 				webhook: {
 					url: TEST_URL,
 					secret: 'TEST_SECRET',
+					customData: {
+						customID: 123,
+					},
 				},
+				audioBitrate: null,
+				videoBitrate: null,
+				encodingBufferSize: null,
+				encodingMaxRate: null,
+				forceHeight: null,
+				forceWidth: null,
+				rendererFunctionName: null,
+				bucketName: null,
+				audioCodec: null,
+				offthreadVideoCacheSizeInBytes: null,
+				offthreadVideoThreads: null,
+				deleteAfter: null,
+				colorSpace: null,
+				preferLossless: false,
+				forcePathStyle: false,
+				metadata: {Author: 'Lunar'},
+				apiKey: null,
 			},
-			extraContext
-		);
-		const startRes = res as Await<LambdaReturnValues[LambdaRoutines.start]>;
+			functionName: 'remotion-dev-lambda',
+			region: 'us-east-1',
+			timeoutInTest: 120000,
+		});
 
-		(await handler(
-			{
-				type: LambdaRoutines.status,
-				bucketName: startRes.bucketName,
-				renderId: startRes.renderId,
-				version: VERSION,
+		await waitUntilDone(res.bucketName, res.renderId);
+
+		const webhookCalls = getWebhookCalls();
+
+		expect(webhookCalls.length).toBe(1);
+		expect(webhookCalls[0].options.url).toBe(TEST_URL);
+		const {payload} = webhookCalls[0].options;
+		if (payload.type !== 'success') {
+			throw new Error(`Expected success, got ${payload.type}`);
+		}
+
+		const {
+			expectedBucketOwner,
+			timeToFinish,
+			renderId,
+			costs,
+			...testablePayload
+		} = payload;
+		expect(testablePayload).toEqual({
+			type: 'success',
+			bucketName: 'remotionlambda-eucentral1-abcdef',
+			customData: {
+				customID: 123,
 			},
-			extraContext
-		)) as Await<LambdaReturnValues[LambdaRoutines.status]>;
+			outputUrl: 'https://s3.mock-region-1.amazonaws.com/bucket/mock.mp4',
+			lambdaErrors: [],
+			outputFile: 'https://s3.mock-region-1.amazonaws.com/bucket/mock.mp4',
+		});
+		await close();
+	},
+	{timeout: 10000},
+);
 
-		expect(mockableHttpClients.http).toHaveBeenCalledTimes(1);
-		expect(mockableHttpClients.http).toHaveBeenCalledWith(
-			TEST_URL,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-Remotion-Signature': expect.stringContaining('sha512='),
-					'X-Remotion-Status': 'success',
-					'X-Remotion-Mode': 'production',
-					'Content-Length': expect.any(Number),
-				},
-				timeout: 5000,
-			},
-			expect.anything()
-		);
-	});
+test(
+	'Should call webhook upon timeout',
+	async () => {
+		// Maybe this can use simulateLambdaRender instead
+		const {port, close} = await RenderInternals.serveStatic(exampleBuild, {
+			binariesDirectory: null,
+			offthreadVideoThreads: 1,
+			downloadMap: RenderInternals.makeDownloadMap(),
+			indent: false,
+			logLevel: 'error',
+			offthreadVideoCacheSizeInBytes: null,
+			port: null,
+			remotionRoot: path.dirname(exampleBuild),
+			forceIPv4: false,
+		});
 
-	test('Should call webhook upon timeout', async () => {
-		process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE = '2048';
+		resetWebhookCalls();
 
-		const res = await handler(
-			{
-				type: LambdaRoutines.start,
-				serveUrl: 'https://gleaming-wisp-de5d2a.netlify.app/',
+		await mockImplementation.callFunctionSync({
+			functionName: 'remotion-dev-lambda',
+			region: 'us-east-1',
+			type: ServerlessRoutines.launch,
+			payload: {
+				type: ServerlessRoutines.launch,
+				offthreadVideoCacheSizeInBytes: null,
+				offthreadVideoThreads: null,
+				serveUrl: `http://localhost:${port}`,
 				chromiumOptions: {},
 				codec: 'h264',
 				composition: 'react-svg',
 				crf: 9,
 				envVariables: {},
-				frameRange: [0, 50],
-				framesPerLambda: 8,
+				frameRange: [0, 10],
+				framesPerFunction: 8,
 				imageFormat: 'png',
-				inputProps: {},
+				inputProps: {
+					type: 'payload',
+					payload: '{}',
+				},
 				logLevel: 'warn',
 				maxRetries: 3,
 				outName: 'out.mp4',
 				pixelFormat: 'yuv420p',
 				privacy: 'public',
-				proResProfile: undefined,
-				quality: undefined,
+				proResProfile: null,
+				x264Preset: null,
+				jpegQuality: undefined,
 				scale: 1,
 				timeoutInMilliseconds: 3000,
 				numberOfGifLoops: null,
 				everyNthFrame: 1,
-				concurrencyPerLambda: 1,
+				concurrencyPerFunction: 1,
 				downloadBehavior: {
 					type: 'play-in-browser',
 				},
 				muted: false,
-				version: VERSION,
 				overwrite: true,
-				webhook: {url: TEST_URL, secret: 'TEST_SECRET'},
-			},
-			extraContext
-		);
-		const startRes = res as Await<LambdaReturnValues[LambdaRoutines.start]>;
-
-		(await handler(
-			{
-				type: LambdaRoutines.status,
-				bucketName: startRes.bucketName,
-				renderId: startRes.renderId,
-				version: VERSION,
-			},
-			extraContext
-		)) as Await<LambdaReturnValues[LambdaRoutines.status]>;
-
-		expect(mockableHttpClients.http).toHaveBeenCalledTimes(1);
-		expect(mockableHttpClients.http).toHaveBeenCalledWith(
-			TEST_URL,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-Remotion-Mode': 'production',
-					'X-Remotion-Signature': expect.stringContaining('sha512='),
-					'X-Remotion-Status': 'timeout',
-					'Content-Length': 79,
+				webhook: {
+					url: TEST_URL,
+					secret: 'TEST_SECRET',
+					customData: {customID: 123},
 				},
-				timeout: 5000,
+				audioBitrate: null,
+				videoBitrate: null,
+				encodingBufferSize: null,
+				encodingMaxRate: null,
+				bucketName: 'abc',
+				renderId: 'abc',
+				forceHeight: null,
+				forceWidth: null,
+				rendererFunctionName: null,
+				audioCodec: null,
+				deleteAfter: null,
+				colorSpace: null,
+				preferLossless: false,
+				forcePathStyle: false,
+				metadata: null,
+				apiKey: null,
 			},
-			expect.anything()
-		);
-	});
-});
+			timeoutInTest: 1000,
+		});
+
+		await new Promise((resolve) => {
+			setTimeout(resolve, 2000);
+		});
+
+		const webhookCalls = getWebhookCalls();
+
+		expect(webhookCalls.length).toBe(1);
+		expect(webhookCalls[0].options.payload).toEqual({
+			type: 'timeout',
+			renderId: 'abc',
+			expectedBucketOwner: '124',
+			bucketName: 'abc',
+			customData: {
+				customID: 123,
+			},
+		});
+		await close();
+	},
+	{timeout: 10000},
+);

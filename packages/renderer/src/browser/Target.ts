@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-import type {Browser, BrowserContext} from './Browser';
+import {BrowserLog} from '../browser-log';
+import type {LogLevel} from '../log-level';
+import type {BrowserContext, HeadlessBrowser} from './Browser';
 import {Page} from './BrowserPage';
 import type {CDPSession} from './Connection';
 import type {TargetInfo} from './devtools-types';
 import type {Viewport} from './PuppeteerViewport';
+import type {SourceMapGetter} from './source-map-getter';
 
 const isPagetTarget = (target: TargetInfo): boolean => {
 	return (
@@ -35,7 +38,7 @@ export class Target {
 	#defaultViewport: Viewport;
 	#pagePromise?: Promise<Page>;
 
-	_initializedPromise: Promise<boolean>;
+	_initializedPromise: Promise<boolean> | null;
 	_initializedCallback!: (x: boolean) => void;
 	_isClosedPromise: Promise<void>;
 	_closedCallback!: () => void;
@@ -46,7 +49,7 @@ export class Target {
 		targetInfo: TargetInfo,
 		browserContext: BrowserContext,
 		sessionFactory: () => Promise<CDPSession>,
-		defaultViewport: Viewport
+		defaultViewport: Viewport,
 	) {
 		this.#targetInfo = targetInfo;
 		this.#browserContext = browserContext;
@@ -91,18 +94,39 @@ export class Target {
 	/**
 	 * If the target is not of type `"page"` or `"background_page"`, returns `null`.
 	 */
-	async page(): Promise<Page | null> {
+	async page({
+		sourceMapGetter,
+		logLevel,
+		indent,
+		pageIndex,
+		onBrowserLog,
+	}: {
+		sourceMapGetter: SourceMapGetter;
+		logLevel: LogLevel;
+		indent: boolean;
+		pageIndex: number;
+		onBrowserLog: null | ((log: BrowserLog) => void);
+	}): Promise<Page | null> {
 		if (isPagetTarget(this.#targetInfo) && !this.#pagePromise) {
 			this.#pagePromise = this.#sessionFactory().then((client) => {
-				return Page._create(
+				return Page._create({
 					client,
-					this,
-					this.#defaultViewport ?? null,
-					this.browser()
-				);
+					target: this,
+					defaultViewport: this.#defaultViewport ?? null,
+					browser: this.browser(),
+					sourceMapGetter,
+					logLevel,
+					indent,
+					pageIndex,
+					onBrowserLog,
+				});
 			});
 		}
 
+		return (await this.#pagePromise) ?? null;
+	}
+
+	async expectPage(): Promise<Page | null> {
 		return (await this.#pagePromise) ?? null;
 	}
 
@@ -143,7 +167,7 @@ export class Target {
 	/**
 	 * Get the browser the target belongs to.
 	 */
-	browser(): Browser {
+	browser(): HeadlessBrowser {
 		return this.#browserContext.browser();
 	}
 
